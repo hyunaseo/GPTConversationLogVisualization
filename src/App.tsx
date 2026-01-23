@@ -3,7 +3,6 @@ import "./styles.css";
 import type { Filters, ChatThread } from "./types";
 import { mockThreads } from "./lib/mock";
 import { ZipImport } from "./components/ZipImport";
-import { FiltersBar } from "./components/FiltersBar";
 import { ThreadList } from "./components/ThreadList";
 import { ThreadViewer } from "./components/ThreadViewer";
 import {
@@ -57,7 +56,7 @@ export default function App() {
   const [zipEntries, setZipEntries] = React.useState<ZipEntries | null>(null);
 
   const [status, setStatus] = React.useState<string>("");
-  const [filters, setFilters] = React.useState<Filters>(defaultFilters);
+  const [filters, _setFilters] = React.useState<Filters>(defaultFilters);
   const [jsonSummary, setJsonSummary] = React.useState<string>("");
 
   const [threads, setThreads] = React.useState<ChatThread[]>(mockThreads);
@@ -217,7 +216,6 @@ export default function App() {
 
         {/* 2~4) Main content */}
         <section className="left">
-          <FiltersBar filters={filters} onChange={setFilters} />
           <ThreadList
             threads={filtered}
             selectedId={selectedId}

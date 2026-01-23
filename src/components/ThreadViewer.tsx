@@ -148,7 +148,7 @@ export function ThreadViewer({ thread, entries }: Props) {
   if (!thread) {
     return (
       <div className="card" style={{ height: "100%" }}>
-        <div className="title">Step 4. 이미지와 대화를 확인한 뒤 데이터로 추가할지 선택하세요.</div>
+        <div className="title">Step 3. 이미지와 대화를 확인한 뒤 데이터로 추가할지 선택하세요.</div>
         <div className="muted" style={{ marginTop: 10 }}>
           왼쪽에서 대화를 선택하세요.
         </div>
@@ -165,7 +165,7 @@ export function ThreadViewer({ thread, entries }: Props) {
   return (
     <div className="card" style={{ height: "100%" }}>
       <div className="row">
-        <div className="title">Step 4. 이미지와 대화를 확인한 뒤 데이터로 추가할지 선택하세요.</div>
+        <div className="title">Step 3. 이미지와 대화를 확인한 뒤 데이터로 추가할지 선택하세요.</div>
         <button className="btn" type="button">
           Add
         </button>
