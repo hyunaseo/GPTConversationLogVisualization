@@ -1,4 +1,6 @@
+import * as React from "react";
 import type { ChatThread } from "../types";
+import type { ZipEntries } from "../lib/zipJson";
 
 function fmt(ts?: number) {
   if (!ts) return "-";
@@ -10,9 +12,53 @@ type Props = {
   threads: ChatThread[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  entries: ZipEntries | null;
+  imagesOnly: boolean;
 };
 
-export function ThreadList({ threads, selectedId, onSelect }: Props) {
+function blobUrlFromEntry(entries: ZipEntries, path: string): string | null {
+  const u8 = entries[path];
+  if (!u8) return null;
+
+  const ext = path.toLowerCase().split(".").pop() || "png";
+  const mime =
+    ext === "jpg" || ext === "jpeg"
+      ? "image/jpeg"
+      : ext === "webp"
+      ? "image/webp"
+      : "image/png";
+
+  const ab = new Uint8Array(u8).buffer;
+  const blob = new Blob([ab], { type: mime });
+  return URL.createObjectURL(blob);
+}
+
+export function ThreadList({ threads, selectedId, onSelect, entries, imagesOnly }: Props) {
+  const [thumbUrls, setThumbUrls] = React.useState<Record<string, string>>({});
+
+  React.useEffect(() => {
+    for (const url of Object.values(thumbUrls)) URL.revokeObjectURL(url);
+    setThumbUrls({});
+
+    if (!imagesOnly || !entries) return;
+
+    const next: Record<string, string> = {};
+    for (const t of threads) {
+      const path = t.imagePaths?.[0];
+      if (!path) continue;
+      const url = blobUrlFromEntry(entries, path);
+      if (url) next[t.id] = url;
+    }
+    setThumbUrls(next);
+
+    return () => {
+      for (const url of Object.values(next)) URL.revokeObjectURL(url);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [threads, entries, imagesOnly]);
+
+  const showThumbnails = imagesOnly;
+
   return (
     <div className="card" style={{ height: "100%", overflow: "auto" }}>
       <div className="row" style={{ justifyContent: "space-between" }}>
@@ -28,13 +74,32 @@ export function ThreadList({ threads, selectedId, onSelect }: Props) {
             onClick={() => onSelect(t.id)}
             type="button"
           >
-            <div className="listTitle">
-              {t.title ?? "(untitled)"}{" "}
-              {t.hasImages ? <span className="pill">IMG</span> : null}
-            </div>
-            <div className="muted" style={{ fontSize: 12 }}>
-              {fmt(t.startTime)} · {t.messageCount} msgs
-            </div>
+            {showThumbnails ? (
+              <div className="threadThumb">
+                {thumbUrls[t.id] ? (
+                  <img
+                    className="threadThumbImage"
+                    src={thumbUrls[t.id]}
+                    alt={t.title ?? "thread image"}
+                  />
+                ) : (
+                  <div className="threadThumbPlaceholder muted">(대표 이미지 없음)</div>
+                )}
+                <div className="threadThumbMeta muted">
+                  {fmt(t.startTime)} · {t.messageCount} msgs
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="listTitle">
+                  {t.title ?? "(untitled)"}{" "}
+                  {t.hasImages ? <span className="pill">IMG</span> : null}
+                </div>
+                <div className="muted" style={{ fontSize: 12 }}>
+                  {fmt(t.startTime)} · {t.messageCount} msgs
+                </div>
+              </>
+            )}
           </button>
         ))}
       </div>
