@@ -85,7 +85,7 @@ export function ThreadList({ threads, selectedId, onSelect, entries, imagesOnly 
                   <div className="threadGridPlaceholder muted">(대표 이미지 없음)</div>
                 )}
                 <div className="threadGridMeta muted">
-                  {fmt(t.startTime)} · {t.messageCount} msgs
+                  {fmt(t.startTime)}
                 </div>
               </button>
             ))}

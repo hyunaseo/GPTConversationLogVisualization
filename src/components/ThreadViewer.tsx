@@ -70,9 +70,11 @@ export function ThreadViewer({ thread, entries }: Props) {
     );
   }
 
-  const pointerCount = thread.imageAssetPointers?.length ?? 0;
+  // const pointerCount = thread.imageAssetPointers?.length ?? 0;
   const imagePathCount = thread.imagePaths?.length ?? 0;
   const messages = thread.messages ?? [];
+  const hasImagePaths = imagePathCount > 0;
+  const hasRenderableImages = Boolean(entries) && thumbUrls.length > 0;
 
   return (
     <div className="card" style={{ height: "100%" }}>
@@ -80,26 +82,26 @@ export function ThreadViewer({ thread, entries }: Props) {
 
       {/* Header / Meta */}
       <div style={{ marginTop: 10 }}>
-        <div style={{ fontSize: 18, fontWeight: 700 }}>{thread.title ?? "(untitled)"}</div>
+        <div style={{ fontSize: 18, fontWeight: 700 }}>Title: {thread.title ?? "(untitled)"}</div>
 
         <div className="muted" style={{ marginTop: 6 }}>
-          기간: {fmt(thread.startTime)} ~ {fmt(thread.endTime)}
+          Date: {fmt(thread.startTime)}
         </div>
 
-        <div className="muted" style={{ marginTop: 6 }}>
-          메시지 수: {thread.messageCount} · 이미지 포함: {thread.hasImages ? "Yes" : "No"}
+        {/* <div className="muted" style={{ marginTop: 6 }}>
+          Message Count: {thread.messageCount} · 이미지 포함: {thread.hasImages ? "Yes" : "No"}
           {thread.hasImages ? ` (pointers: ${pointerCount}, files: ${imagePathCount})` : ""}
-        </div>
+        </div> */}
       </div>
 
       <hr style={{ margin: "14px 0" }} />
 
       {/* Images preview */}
-      {entries && thumbUrls.length > 0 ? (
+      {hasRenderableImages ? (
         <div>
           <div style={{ fontSize: 14, fontWeight: 700 }}>Images</div>
           <div className="muted" style={{ marginTop: 6 }}>
-            {imagePathCount} file{imagePathCount === 1 ? "" : "s"} (showing up to 12)
+            {imagePathCount} file{imagePathCount === 1 ? "" : "s"}
           </div>
 
           <div
@@ -133,20 +135,16 @@ export function ThreadViewer({ thread, entries }: Props) {
                     fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
                   }}
                 >
-                  {path}
+                  {/* {path} */}
                 </div>
               </div>
             ))}
           </div>
         </div>
-      ) : thread.hasImages ? (
-        <div className="muted">
-          {entries
-            ? "(이미지 파일 매핑이 아직 없거나 실패했습니다: imagePaths가 비어있음)"
-            : "(ZIP entries가 아직 로드되지 않아 이미지를 렌더링할 수 없습니다.)"}
-        </div>
-      ) : (
-        <div className="muted">(이 대화에는 이미지가 없습니다.)</div>
+      ) : thread.hasImages && !entries ? (
+        <div className="muted">(ZIP file is not yet loaded, so images cannot be rendered.)</div>
+      ) : thread.hasImages && !hasImagePaths ? null : (
+        <div className="muted">(This conversation has no images.)</div>
       )}
 
     {/* Conversation log */}
@@ -155,7 +153,7 @@ export function ThreadViewer({ thread, entries }: Props) {
 
         <div style={{ fontSize: 14, fontWeight: 700 }}>Conversation</div>
         <div className="muted" style={{ marginTop: 6 }}>
-          {messages.length} message{messages.length === 1 ? "" : "s"} (user + assistant)
+          {messages.length} message{messages.length === 1 ? "" : "s"} 
         </div>
 
         {messages.length > 0 ? (
@@ -163,7 +161,7 @@ export function ThreadViewer({ thread, entries }: Props) {
             {messages.map((msg) => {
               const text = msg.text?.trim();
               const assetCount = msg.assetPointers?.length ?? 0;
-              const fallback = assetCount > 0 ? "(이미지 첨부)" : "(내용 없음)";
+              const fallback = assetCount > 0 ? "(Image attached)" : "(No content)";
 
               return (
                 <div key={msg.id} className="conversationMessage">
@@ -184,13 +182,13 @@ export function ThreadViewer({ thread, entries }: Props) {
           </div>
         ) : (
           <div className="muted" style={{ marginTop: 10 }}>
-            (이 대화에는 표시할 메시지가 없습니다.)
+            (This conversation has no messages to display.)
           </div>
         )}
       </div>
 
       {/* Asset pointers list */}
-      {pointerCount > 0 ? (
+      {/* {pointerCount > 0 ? (
         <div style={{ marginTop: 14 }}>
           <hr style={{ margin: "14px 0" }} />
 
@@ -228,11 +226,8 @@ export function ThreadViewer({ thread, entries }: Props) {
             </ul>
           </div>
         </div>
-      ) : null}
+      ) : null} */}
 
-      <div className="muted" style={{ marginTop: 14 }}>
-        (다음 단계: 선택한 이미지/대화만 다시 ZIP으로 export)
-      </div>
     </div>
   );
 }

@@ -26,9 +26,12 @@ const defaultFilters: Filters = {
   imagesOnly: true,
 };
 
-function applyFilters(threads: ChatThread[], f: Filters) {
+function applyFilters(threads: ChatThread[], f: Filters, hasZipEntries: boolean) {
   return threads.filter((t) => {
-    if (f.imagesOnly && !t.hasImages) return false;
+    if (f.imagesOnly) {
+      if (!t.hasImages) return false;
+      if (hasZipEntries && (t.imagePaths?.length ?? 0) === 0) return false;
+    }
 
     if (f.keyword.trim()) {
       const kw = f.keyword.trim().toLowerCase();
@@ -59,7 +62,10 @@ export default function App() {
 
   const [threads, setThreads] = React.useState<ChatThread[]>(mockThreads);
 
-  const filtered = React.useMemo(() => applyFilters(threads, filters), [threads, filters]);
+  const filtered = React.useMemo(
+    () => applyFilters(threads, filters, Boolean(zipEntries)),
+    [threads, filters, zipEntries]
+  );
 
   const [selectedId, setSelectedId] = React.useState<string | null>(filtered[0]?.id ?? null);
 
@@ -75,7 +81,7 @@ export default function App() {
 
   async function onZipSelected(file: File) {
     setZipFile(file);
-    setStatus("ZIP 읽는 중...");
+    setStatus("Processing...");
     setJsonSummary("");
     setZipEntries(null);
 
@@ -85,7 +91,7 @@ export default function App() {
 
       const jsonPaths = listJsonPaths(entries);
       if (jsonPaths.length === 0) {
-        setStatus("ZIP 안에서 .json 파일을 찾지 못했습니다.");
+        setStatus("No .json files found inside the ZIP.");
         return;
       }
 
@@ -96,7 +102,7 @@ export default function App() {
       const parsed = parseJsonSafe(text);
 
       if (!parsed.ok) {
-        setStatus("JSON 파싱 실패");
+        setStatus("JSON parsing failed");
         setJsonSummary(
           `File: ${preferred}\nJSON.parse error: ${parsed.error}\n\nFirst 2000 chars:\n${text.slice(0, 2000)}`
         );
@@ -138,7 +144,7 @@ export default function App() {
         const scan = scanConversations(parsed.value, 10);
 
         setStatus(
-          `완료: 대화 ${threadsWithPaths.length}개 (이미지 대화 ${imgThreadCount}개) · 매핑된 이미지 ${mappedImgCount}개`
+          `Done: ${threadsWithPaths.length} conversations (${imgThreadCount} with images) · ${mappedImgCount} images mapped`
         );
 
         setJsonSummary(
