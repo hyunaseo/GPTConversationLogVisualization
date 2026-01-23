@@ -115,6 +115,56 @@ input:focus { border-color: var(--accent); }
 }
 .listTitle { font-weight: 800; display: flex; align-items: center; gap: 8px; }
 
+.threadGrid {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.threadGridItem {
+  text-align: left;
+  background: #0f1117;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px;
+  cursor: pointer;
+  color: var(--text);
+  display: grid;
+  gap: 6px;
+}
+
+.threadGridItem.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(98, 159, 252, 0.2) inset;
+}
+
+.threadGridImage {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.threadGridPlaceholder {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  text-align: center;
+  padding: 6px;
+}
+
+.threadGridMeta {
+  font-size: 12px;
+}
+
+
 .pill {
   font-size: 11px;
   font-weight: 900;
