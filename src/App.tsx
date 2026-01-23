@@ -170,9 +170,9 @@ export default function App() {
     <div className="page">
       <header className="header">
         <div>
-          <div className="h1">ChatGPT Image Log Viewer (Local)</div>
+          <div className="h1">Data Collection for Project NoonChi</div>
           <div className="muted">
-            로컬 전용 · ZIP import → 이미지 포함 대화 시각화/검색/선택 다운로드 (MVP scaffold)
+            All data is processed locally on your computer and is never transmitted elsewhere.
           </div>
         </div>
       </header>

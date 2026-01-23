@@ -13,9 +13,9 @@ export function ZipImport({ onZipSelected, zipName, status }: Props) {
     <div className="card">
       <div className="row">
         <div>
-          <div className="title">1) Import ChatGPT Export (ZIP)</div>
+          <div className="title">1) Upload ChatGPT zip file</div>
           <div className="muted">
-            로컬에서만 처리됩니다. (현재는 UI만 있고 파싱은 아직 미구현)
+            Only the ZIP file downloaded from ChatGPT is supported.
           </div>
         </div>
 
@@ -24,7 +24,7 @@ export function ZipImport({ onZipSelected, zipName, status }: Props) {
           onClick={() => inputRef.current?.click()}
           type="button"
         >
-          ZIP 선택
+          Upload
         </button>
 
         <input
@@ -42,16 +42,16 @@ export function ZipImport({ onZipSelected, zipName, status }: Props) {
       <div className="muted" style={{ marginTop: 10 }}>
         {zipName ? (
           <>
-            선택됨: <b>{zipName}</b>
+            Selected: <b>{zipName}</b>
           </>
         ) : (
-          "아직 ZIP이 선택되지 않았습니다."
+          "No ZIP file selected yet."
         )}
       </div>
 
       {status ? (
         <div className="muted" style={{ marginTop: 6 }}>
-          상태: {status}
+          Status: {status}
         </div>
       ) : null}
     </div>

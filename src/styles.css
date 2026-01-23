@@ -129,3 +129,47 @@ input:focus { border-color: var(--accent); }
 .right { min-height: 100%; }
 
 .footer { margin-top: 14px; }
+
+.conversationLog {
+  margin-top: 10px;
+  display: grid;
+  gap: 10px;
+  max-height: 320px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  background: #0f1117;
+}
+
+.conversationMessage {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(20, 22, 28, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.conversationRole {
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+}
+
+.conversationBody {
+  display: grid;
+  gap: 6px;
+}
+
+.conversationText {
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
+
+.conversationMeta {
+  font-size: 11px;
+}

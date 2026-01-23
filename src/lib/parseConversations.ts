@@ -1,4 +1,4 @@
-import type { ChatThread } from "../types";
+import type { ChatThread, ChatMessage } from "../types";
 
 function typeOf(v: any): string {
   if (v === null) return "null";
@@ -22,6 +22,24 @@ function getImageAssetPointersFromMessageContent(content: any): string[] {
   return out;
 }
 
+function extractTextFromContent(content: any): string {
+  if (!content) return "";
+  if (typeof content?.text === "string") return content.text;
+
+  const parts = content.parts;
+  if (!Array.isArray(parts)) return "";
+
+  const texts: string[] = [];
+  for (const p of parts) {
+    if (typeof p === "string") {
+      texts.push(p);
+    } else if (p && typeof p === "object" && typeof (p as any).text === "string") {
+      texts.push((p as any).text);
+    }
+  }
+  return texts.join("\n").trim();
+}
+
 export function parseConversationsToThreads(conversations: any[]): ChatThread[] {
   const threads: ChatThread[] = [];
 
@@ -32,6 +50,7 @@ export function parseConversationsToThreads(conversations: any[]): ChatThread[] 
     let messageCount = 0;
     let hasImages = false;
     const assetPointers: string[] = [];
+    const messages: Array<{ msg: ChatMessage; order: number }> = [];
 
     for (const nodeId of Object.keys(mapping)) {
       const msg = mapping[nodeId]?.message;
@@ -50,10 +69,37 @@ export function parseConversationsToThreads(conversations: any[]): ChatThread[] 
           assetPointers.push(...aps);
         }
       }
+
+      const role = String(msg?.author?.role ?? "");
+      if (role === "user" || role === "assistant") {
+        const text = extractTextFromContent(content);
+        const messageAssetPointers =
+          contentType === "multimodal_text" ? getImageAssetPointersFromMessageContent(content) : [];
+
+        messages.push({
+          msg: {
+            id: String(msg?.id ?? nodeId),
+            role,
+            text,
+            createdAt: typeof msg?.create_time === "number" ? msg.create_time * 1000 : undefined,
+            assetPointers: messageAssetPointers.length ? messageAssetPointers : undefined,
+          },
+          order: messages.length,
+        });
+      }
     }
 
     // dedup
     const uniquePointers = Array.from(new Set(assetPointers));
+
+    const sortedMessages = messages.some((item) => item.msg.createdAt)
+      ? [...messages].sort((a, b) => {
+          const ta = a.msg.createdAt ?? 0;
+          const tb = b.msg.createdAt ?? 0;
+          if (ta !== tb) return ta - tb;
+          return a.order - b.order;
+        })
+      : messages;
 
     threads.push({
       id: String(conv?.id ?? conv?.conversation_id ?? ""),
@@ -62,6 +108,7 @@ export function parseConversationsToThreads(conversations: any[]): ChatThread[] 
       endTime: typeof conv?.update_time === "number" ? conv.update_time * 1000 : undefined,
       hasImages,
       messageCount,
+      messages: sortedMessages.length ? sortedMessages.map((item) => item.msg) : undefined,
       imageAssetPointers: uniquePointers.length ? uniquePointers : undefined,
     });
   }

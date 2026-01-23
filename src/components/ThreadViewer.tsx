@@ -72,6 +72,7 @@ export function ThreadViewer({ thread, entries }: Props) {
 
   const pointerCount = thread.imageAssetPointers?.length ?? 0;
   const imagePathCount = thread.imagePaths?.length ?? 0;
+  const messages = thread.messages ?? [];
 
   return (
     <div className="card" style={{ height: "100%" }}>
@@ -147,6 +148,46 @@ export function ThreadViewer({ thread, entries }: Props) {
       ) : (
         <div className="muted">(이 대화에는 이미지가 없습니다.)</div>
       )}
+
+    {/* Conversation log */}
+      <div style={{ marginTop: 14 }}>
+        <hr style={{ margin: "14px 0" }} />
+
+        <div style={{ fontSize: 14, fontWeight: 700 }}>Conversation</div>
+        <div className="muted" style={{ marginTop: 6 }}>
+          {messages.length} message{messages.length === 1 ? "" : "s"} (user + assistant)
+        </div>
+
+        {messages.length > 0 ? (
+          <div className="conversationLog">
+            {messages.map((msg) => {
+              const text = msg.text?.trim();
+              const assetCount = msg.assetPointers?.length ?? 0;
+              const fallback = assetCount > 0 ? "(이미지 첨부)" : "(내용 없음)";
+
+              return (
+                <div key={msg.id} className="conversationMessage">
+                  <div className="conversationRole">
+                    {msg.role === "user" ? "User" : "Assistant"}
+                  </div>
+                  <div className="conversationBody">
+                    <div className="conversationText">{text || fallback}</div>
+                    {assetCount > 0 ? (
+                      <div className="conversationMeta muted">
+                        이미지 {assetCount}개 포함
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="muted" style={{ marginTop: 10 }}>
+            (이 대화에는 표시할 메시지가 없습니다.)
+          </div>
+        )}
+      </div>
 
       {/* Asset pointers list */}
       {pointerCount > 0 ? (
