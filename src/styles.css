@@ -18,26 +18,34 @@ body {
 
 .page {
   padding: 18px;
-  max-width: 1200px;
+  max-width: 1700px;
   margin: 0 auto;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
-.header { margin-bottom: 14px; }
-.h1 { font-size: 22px; font-weight: 800; }
+
+.header {
+  margin-bottom: 14px;
+  padding-left: calc(230px + 20px);
+}
+.h1 { font-size: 24px; font-weight: 800; }
 .muted { color: var(--muted); }
 
 .layout{
   display: grid;
-  grid-template-columns: 420px 1fr;
+  grid-template-columns: 230px 420px 1fr;
   grid-template-rows: auto 1fr;
   grid-template-areas:
-    "top   top"
-    "left right";
-  gap: 24px;
+    "tips top   top"
+    "tips left right";
+  gap: 20px;
   flex: 1;
   min-height: 0;
+}
+
+.tips{
+  grid-area: tips;
 }
 
 .top{
@@ -60,7 +68,7 @@ body {
   padding: 14px;
 }
 
-.title { font-weight: 800; }
+.title { font-size: 20px; font-weight:800; }
 
 .row {
   display: flex;
@@ -143,6 +151,40 @@ input:focus { border-color: var(--accent); }
   gap: 10px;
 }
 
+.tipsCard {
+  border-color: #4a4230;
+  background: linear-gradient(180deg, rgba(58, 52, 40, 0.9), rgba(40, 36, 28, 0.95));
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
+}
+
+.tipsTitle {
+  font-weight: 900;
+  font-size: 20px;
+  margin-bottom: 2px;
+}
+
+.tipsLead {
+  margin: 0 0 8px;
+  color: #e6e1d5;
+  line-height: 1.25;
+}
+
+.tipsEm {
+  color: #f0c674;
+  font-weight: 600;
+}
+
+.tipsList {
+  margin: 0 0 12px 10px;
+  padding: 0;
+  color: #e6e1d5;
+  line-height: 1.25;
+}
+
+.tipsList li {
+  margin-bottom: 6px;
+}
+
 .threadGridItem {
   text-align: left;
   background: #0f1117;
@@ -185,7 +227,6 @@ input:focus { border-color: var(--accent); }
   font-size: 12px;
 }
 
-
 .pill {
   font-size: 11px;
   font-weight: 900;
@@ -215,7 +256,7 @@ input:focus { border-color: var(--accent); }
   margin-top: 10px;
   display: grid;
   gap: 10px;
-  max-height: 320px;
+  max-height: 550px;
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: 12px;

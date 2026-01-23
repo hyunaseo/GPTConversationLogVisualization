@@ -148,7 +148,7 @@ export function ThreadViewer({ thread, entries }: Props) {
   if (!thread) {
     return (
       <div className="card" style={{ height: "100%" }}>
-        <div className="title">4) Viewer</div>
+        <div className="title">Step 4. 이미지와 대화를 확인한 뒤 데이터로 추가할지 선택하세요.</div>
         <div className="muted" style={{ marginTop: 10 }}>
           왼쪽에서 대화를 선택하세요.
         </div>
@@ -164,14 +164,14 @@ export function ThreadViewer({ thread, entries }: Props) {
 
   return (
     <div className="card" style={{ height: "100%" }}>
-      <div className="title">4) Viewer</div>
+      <div className="title">Step 4. 이미지와 대화를 확인한 뒤 데이터로 추가할지 선택하세요.</div>
 
       {/* Header / Meta */}
       <div style={{ marginTop: 10 }}>
-        <div style={{ fontSize: 18, fontWeight: 700 }}>Title: {thread.title ?? "(untitled)"}</div>
+        <div style={{ fontSize: 18, fontWeight: 700 }}>대화제목: {thread.title ?? "(untitled)"}</div>
 
         <div className="muted" style={{ marginTop: 6 }}>
-          Date: {fmt(thread.startTime)}
+          날짜: {fmt(thread.startTime)}
         </div>
 
         {/* <div className="muted" style={{ marginTop: 6 }}>
@@ -185,9 +185,9 @@ export function ThreadViewer({ thread, entries }: Props) {
       {/* Images preview */}
       {hasRenderableImages ? (
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700 }}>Images</div>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>이미지</div>
           <div className="muted" style={{ marginTop: 6 }}>
-            {imagePathCount} file{imagePathCount === 1 ? "" : "s"}
+            
           </div>
 
           <div
@@ -228,18 +228,17 @@ export function ThreadViewer({ thread, entries }: Props) {
           </div>
         </div>
       ) : thread.hasImages && !entries ? (
-        <div className="muted">(ZIP file is not yet loaded, so images cannot be rendered.)</div>
+        <div className="muted">(ZIP 파일이 아직 업로드되지 않았습니다.)</div>
       ) : thread.hasImages && !hasImagePaths ? null : (
-        <div className="muted">(This conversation has no images.)</div>
+        <div className="muted">(이 대화에는 이미지가 없습니다.)</div>
       )}
 
     {/* Conversation log */}
       <div style={{ marginTop: 14 }}>
         <hr style={{ margin: "14px 0" }} />
 
-        <div style={{ fontSize: 14, fontWeight: 700 }}>Conversation</div>
+        <div style={{ fontSize: 14, fontWeight: 700 }}>대화 내용</div>
         <div className="muted" style={{ marginTop: 6 }}>
-          {messages.length} message{messages.length === 1 ? "" : "s"} 
         </div>
 
         {messages.length > 0 ? (
@@ -278,7 +277,7 @@ export function ThreadViewer({ thread, entries }: Props) {
           </div>
         ) : (
           <div className="muted" style={{ marginTop: 10 }}>
-            (This conversation has no messages to display.)
+            (이 대화에는 대화 내용이 없습니다.)
           </div>
         )}
       </div>

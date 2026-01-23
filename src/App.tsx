@@ -81,7 +81,7 @@ export default function App() {
 
   async function onZipSelected(file: File) {
     setZipFile(file);
-    setStatus("Processing...");
+    setStatus("");
     setJsonSummary("");
     setZipEntries(null);
 
@@ -176,14 +176,35 @@ export default function App() {
     <div className="page">
       <header className="header">
         <div>
-          <div className="h1">Data Collection for Project NoonChi</div>
+          <div className="h1">Project NoonChi를 위한 데이터 수집</div>
           <div className="muted">
-            All data is processed locally on your computer and is never transmitted elsewhere.
+            모든 데이터 처리는 참가자의 개인 기기에서만 이루어지며, 그 어떤 정보도 외부로 전송되지 않습니다.
           </div>
         </div>
       </header>
 
       <main className="layout">
+        <section className="tips">
+          <aside className="card tipsCard">
+            <div className="tipsTitle">Tips!<br /><br /></div>
+            <p className="tipsLead">
+              실험의 목적 상 아래에 해당하는 이미지는 <span className="tipsEm">수집 대상이 아닙니다!</span>
+            </p>
+            <ul className="tipsList">
+              <li>ChatGPT가 생성한 이미지</li>
+              <li>스크린샷: 코딩에 대한 질의</li>
+              <li>개인정보(예: 주민등록번호)가 노출된 이미지<br /><br /></li>
+            </ul>
+            <p className="tipsLead">다양한 논의를 위해, 다양한 맥락의 이미지일수록 좋아요</p>
+            <ul className="tipsList">
+              <li>
+                모든 데이터가 여기에 대한 것이나, “저게 뭐야?”같은 단순 질의에 대한
+                것이면 곤란해요
+              </li>
+            </ul>
+          </aside>
+        </section>
+        
         {/* 1) Top full-width */}
         <section className="top">
           <ZipImport
@@ -210,10 +231,6 @@ export default function App() {
           <ThreadViewer thread={selected} entries={zipEntries} />
         </section>
       </main>
-
-      <footer className="footer muted">
-        다음 단계: 이미지 썸네일 렌더링 최적화 + 선택 export ZIP
-      </footer>
     </div>
   );
 }
