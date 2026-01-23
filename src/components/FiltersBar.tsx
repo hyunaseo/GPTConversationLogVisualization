@@ -8,14 +8,14 @@ type Props = {
 export function FiltersBar({ filters, onChange }: Props) {
   return (
     <div className="card">
-      <div className="title">2) Search / Filter</div>
+      <div className="title">Step 2. Search / Filter</div>
 
       <div className="grid">
         <label className="field">
           <div className="label">Keyword</div>
           <input
             value={filters.keyword}
-            placeholder="예: image, Unity, EmoShortcuts..."
+            placeholder="example: travel, Japan, translate"
             onChange={(e) => onChange({ ...filters, keyword: e.target.value })}
           />
         </label>

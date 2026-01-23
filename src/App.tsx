@@ -191,7 +191,13 @@ export default function App() {
         {/* 2~4) Main content */}
         <section className="left">
           <FiltersBar filters={filters} onChange={setFilters} />
-          <ThreadList threads={filtered} selectedId={selectedId} onSelect={setSelectedId} />
+          <ThreadList
+            threads={filtered}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            entries={zipEntries}
+            imagesOnly={filters.imagesOnly}
+          />
         </section>
 
         <section className="right">

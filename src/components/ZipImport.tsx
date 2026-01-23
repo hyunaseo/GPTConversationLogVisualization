@@ -13,7 +13,7 @@ export function ZipImport({ onZipSelected, zipName, status }: Props) {
     <div className="card">
       <div className="row">
         <div>
-          <div className="title">1) Upload ChatGPT zip file</div>
+          <div className="title">Step 1. Upload ChatGPT zip file</div>
           <div className="muted">
             Only the ZIP file downloaded from ChatGPT is supported.
           </div>
