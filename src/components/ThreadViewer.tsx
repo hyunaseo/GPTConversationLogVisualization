@@ -2,6 +2,92 @@ import * as React from "react";
 import type { ChatThread } from "../types";
 import type { ZipEntries } from "../lib/zipJson";
 
+function escapeHtml(input: string) {
+  return input
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function formatInline(text: string) {
+  return text
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>");
+}
+
+function markdownToHtml(input: string) {
+  const escaped = escapeHtml(input);
+  const lines = escaped.split(/\r?\n/);
+  const parts: string[] = [];
+  let paragraph: string[] = [];
+  let listType: "ul" | "ol" | null = null;
+
+  const flushParagraph = () => {
+    if (paragraph.length > 0) {
+      parts.push(`<p>${paragraph.join("<br />")}</p>`);
+      paragraph = [];
+    }
+  };
+
+  const closeList = () => {
+    if (listType) {
+      parts.push(`</${listType}>`);
+      listType = null;
+    }
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushParagraph();
+      closeList();
+      continue;
+    }
+
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
+    if (headingMatch) {
+      flushParagraph();
+      closeList();
+      const level = headingMatch[1].length;
+      parts.push(`<h${level}>${formatInline(headingMatch[2])}</h${level}>`);
+      continue;
+    }
+
+    const orderedMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
+    if (orderedMatch) {
+      flushParagraph();
+      if (listType !== "ol") {
+        closeList();
+        listType = "ol";
+        parts.push("<ol>");
+      }
+      parts.push(`<li>${formatInline(orderedMatch[2])}</li>`);
+      continue;
+    }
+
+    const bulletMatch = trimmed.match(/^[-*]\s+(.*)$/);
+    if (bulletMatch) {
+      flushParagraph();
+      if (listType !== "ul") {
+        closeList();
+        listType = "ul";
+        parts.push("<ul>");
+      }
+      parts.push(`<li>${formatInline(bulletMatch[1])}</li>`);
+      continue;
+    }
+
+    closeList();
+    paragraph.push(formatInline(trimmed));
+  }
+
+  flushParagraph();
+  closeList();
+
+  return parts.join("");
+}
+
 function fmt(ts?: number) {
   if (!ts) return "-";
   const d = new Date(ts);
@@ -162,14 +248,24 @@ export function ThreadViewer({ thread, entries }: Props) {
               const text = msg.text?.trim();
               const assetCount = msg.assetPointers?.length ?? 0;
               const fallback = assetCount > 0 ? "(Image attached)" : "(No content)";
+              const content = text || fallback;
+              const html = markdownToHtml(content);
 
               return (
-                <div key={msg.id} className="conversationMessage">
+                <div
+                  key={msg.id}
+                  className={`conversationMessage ${
+                    msg.role === "user" ? "conversationMessageUser" : "conversationMessageAssistant"
+                  }`}
+                >
                   <div className="conversationRole">
                     {msg.role === "user" ? "User" : "Assistant"}
                   </div>
                   <div className="conversationBody">
-                    <div className="conversationText">{text || fallback}</div>
+                    <div
+                      className="conversationText conversationMarkdown"
+                      dangerouslySetInnerHTML={{ __html: html }}
+                    />
                     {assetCount > 0 ? (
                       <div className="conversationMeta muted">
                         이미지 {assetCount}개 포함

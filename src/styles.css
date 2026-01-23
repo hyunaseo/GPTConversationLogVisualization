@@ -233,6 +233,15 @@ input:focus { border-color: var(--accent); }
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+.conversationMessageUser {
+  background: rgba(98, 159, 252, 0.12);
+  border-color: rgba(98, 159, 252, 0.25);
+}
+
+.conversationMessageAssistant {
+  background: rgba(255, 255, 255, 0.05);
+}
+
 .conversationRole {
   font-weight: 700;
   font-size: 12px;
@@ -247,8 +256,46 @@ input:focus { border-color: var(--accent); }
 }
 
 .conversationText {
-  white-space: pre-wrap;
   line-height: 1.4;
+}
+
+.conversationMarkdown {
+  white-space: normal;
+}
+
+.conversationMarkdown h1,
+.conversationMarkdown h2,
+.conversationMarkdown h3,
+.conversationMarkdown h4,
+.conversationMarkdown h5,
+.conversationMarkdown h6 {
+  margin: 0 0 6px;
+  font-weight: 500;
+}
+
+.conversationMarkdown p {
+  margin: 0 0 8px;
+}
+
+.conversationMarkdown p:last-child {
+  margin-bottom: 0;
+}
+
+.conversationMarkdown ul,
+.conversationMarkdown ol {
+  margin: 0 0 8px 18px;
+  padding: 0;
+}
+
+.conversationMarkdown li {
+  margin: 0 0 4px;
+}
+
+.conversationMarkdown code {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 4px;
+  border-radius: 4px;
 }
 
 .conversationMeta {
