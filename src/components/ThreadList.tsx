@@ -60,54 +60,56 @@ export function ThreadList({ threads, selectedId, onSelect, entries, imagesOnly 
   const showThumbnails = imagesOnly;
 
   return (
-    <div className="card" style={{ height: "100%", overflow: "auto" }}>
+    <div className="card threadListCard">
       <div className="row" style={{ justifyContent: "space-between" }}>
         <div className="title">3) Threads</div>
         <div className="muted">{threads.length} items</div>
       </div>
-      {showThumbnails ? (
-        <div className="threadGrid">
-          {threads.map((t) => (
-            <button
-              key={t.id}
-              className={"threadGridItem " + (t.id === selectedId ? "active" : "")}
-              onClick={() => onSelect(t.id)}
-              type="button"
-            >
-              {thumbUrls[t.id] ? (
-                <img
-                  className="threadGridImage"
-                  src={thumbUrls[t.id]}
-                  alt={t.title ?? "thread image"}
-                />
-              ) : (
-                <div className="threadGridPlaceholder muted">(대표 이미지 없음)</div>
-              )}
-              <div className="threadGridMeta muted">
-                {fmt(t.startTime)} · {t.messageCount} msgs
-              </div>
-            </button>
-          ))}
-        </div>
-      ) : (
-        <div className="list">
-          {threads.map((t) => (
-            <button
-              key={t.id}
-              className={"listItem " + (t.id === selectedId ? "active" : "")}
-              onClick={() => onSelect(t.id)}
-              type="button"
-            >
-              <div className="listTitle">
-                {t.title ?? "(untitled)"} {t.hasImages ? <span className="pill">IMG</span> : null}
-              </div>
-              <div className="muted" style={{ fontSize: 12 }}>
-                {fmt(t.startTime)} · {t.messageCount} msgs
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="threadListBody">
+        {showThumbnails ? (
+          <div className="threadGrid">
+            {threads.map((t) => (
+              <button
+                key={t.id}
+                className={"threadGridItem " + (t.id === selectedId ? "active" : "")}
+                onClick={() => onSelect(t.id)}
+                type="button"
+              >
+                {thumbUrls[t.id] ? (
+                  <img
+                    className="threadGridImage"
+                    src={thumbUrls[t.id]}
+                    alt={t.title ?? "thread image"}
+                  />
+                ) : (
+                  <div className="threadGridPlaceholder muted">(대표 이미지 없음)</div>
+                )}
+                <div className="threadGridMeta muted">
+                  {fmt(t.startTime)} · {t.messageCount} msgs
+                </div>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="list">
+            {threads.map((t) => (
+              <button
+                key={t.id}
+                className={"listItem " + (t.id === selectedId ? "active" : "")}
+                onClick={() => onSelect(t.id)}
+                type="button"
+              >
+                <div className="listTitle">
+                  {t.title ?? "(untitled)"} {t.hasImages ? <span className="pill">IMG</span> : null}
+                </div>
+                <div className="muted" style={{ fontSize: 12 }}>
+                  {fmt(t.startTime)} · {t.messageCount} msgs
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
