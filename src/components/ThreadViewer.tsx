@@ -164,7 +164,12 @@ export function ThreadViewer({ thread, entries }: Props) {
 
   return (
     <div className="card" style={{ height: "100%" }}>
-      <div className="title">Step 4. 이미지와 대화를 확인한 뒤 데이터로 추가할지 선택하세요.</div>
+      <div className="row">
+        <div className="title">Step 4. 이미지와 대화를 확인한 뒤 데이터로 추가할지 선택하세요.</div>
+        <button className="btn" type="button">
+          Add
+        </button>
+      </div>
 
       {/* Header / Meta */}
       <div style={{ marginTop: 10 }}>
