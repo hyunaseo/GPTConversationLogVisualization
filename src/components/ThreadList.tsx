@@ -62,7 +62,7 @@ export function ThreadList({ threads, selectedId, onSelect, entries, imagesOnly 
   return (
     <div className="card threadListCard">
       <div className="row" style={{ justifyContent: "space-between" }}>
-        <div className="title">Step 3. 이미지를 선택하세요.</div>
+        <div className="title">Step 2. 이미지를 선택하세요.</div>
         <div className="muted">{threads.length} items</div>
       </div>
       <div className="threadListBody">
