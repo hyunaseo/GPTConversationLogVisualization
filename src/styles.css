@@ -116,7 +116,7 @@ input:focus { border-color: var(--accent); }
 }
 
 .threadListCard {
-  max-height: 60vh;
+  max-height: 65vh;
   display: flex;
   flex-direction: column;
 }
@@ -256,7 +256,7 @@ input:focus { border-color: var(--accent); }
   margin-top: 10px;
   display: grid;
   gap: 10px;
-  max-height: 550px;
+  max-height: 400px;
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: 12px;
