@@ -12,6 +12,11 @@ export type ChatThread = {
   imagePaths?: string[]; // zip 내부 경로들 (png/jpg/webp)
 };
 
+export type SavedThread = ChatThread & {
+  savedAt: number;
+};
+
+
 export type ChatMessage = {
   id: string;
   role: "user" | "assistant";
@@ -26,3 +31,4 @@ export type Filters = {
   dateTo: string;   // yyyy-mm-dd
   imagesOnly: boolean;
 };
+

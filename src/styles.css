@@ -87,6 +87,12 @@ body {
   cursor: pointer;
 }
 
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+
 .grid {
   margin-top: 10px;
   display: grid;
@@ -341,4 +347,32 @@ input:focus { border-color: var(--accent); }
 
 .conversationMeta {
   font-size: 11px;
+}
+
+.savedCard {
+  display: grid;
+  gap: 6px;
+}
+
+.savedList {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.savedItem {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: #0f1117;
+}
+
+.savedTitle {
+  font-weight: 700;
+}
+
+.savedMeta {
+  font-size: 12px;
 }

@@ -1,6 +1,6 @@
 import * as React from "react";
 import "./styles.css";
-import type { Filters, ChatThread } from "./types";
+import type { Filters, ChatThread, SavedThread } from "./types";
 import { mockThreads } from "./lib/mock";
 import { ZipImport } from "./components/ZipImport";
 import { ThreadList } from "./components/ThreadList";
@@ -60,6 +60,23 @@ export default function App() {
   const [jsonSummary, setJsonSummary] = React.useState<string>("");
 
   const [threads, setThreads] = React.useState<ChatThread[]>(mockThreads);
+  const [savedThreads, setSavedThreads] = React.useState<SavedThread[]>([]);
+
+  const addThreadToSaved = React.useCallback((thread: ChatThread) => {
+    setSavedThreads((prev) => {
+      if (prev.some((saved) => saved.id === thread.id)) return prev;
+      const snapshot: SavedThread = {
+        ...thread,
+        messages: thread.messages ? [...thread.messages] : undefined,
+        imageAssetPointers: thread.imageAssetPointers
+          ? [...thread.imageAssetPointers]
+          : undefined,
+        imagePaths: thread.imagePaths ? [...thread.imagePaths] : undefined,
+        savedAt: Date.now(),
+      };
+      return [snapshot, ...prev];
+    });
+  }, []);
 
   const filtered = React.useMemo(
     () => applyFilters(threads, filters, Boolean(zipEntries)),
@@ -77,6 +94,13 @@ export default function App() {
     () => filtered.find((t) => t.id === selectedId) ?? null,
     [filtered, selectedId]
   );
+
+  const selectedIsSaved = React.useMemo(
+    () => (selected ? savedThreads.some((saved) => saved.id === selected.id) : false),
+    [savedThreads, selected]
+  );
+
+  const formatSavedAt = React.useCallback((ts: number) => new Date(ts).toLocaleString(), []);
 
   async function onZipSelected(file: File) {
     setZipFile(file);
@@ -223,10 +247,35 @@ export default function App() {
             entries={zipEntries}
             imagesOnly={filters.imagesOnly}
           />
+        <div className="card savedCard">
+            <div className="title">Step 4. 저장된 대화를 확인하고 다운로드하세요.</div>
+            <div className="muted" style={{ marginTop: 6 }}>
+              {savedThreads.length}개 저장됨
+            </div>
+            {savedThreads.length > 0 ? (
+              <ul className="savedList">
+                {savedThreads.map((saved) => (
+                  <li key={saved.id} className="savedItem">
+                    <div className="savedTitle">{saved.title ?? "(untitled)"}</div>
+                    <div className="muted savedMeta">{formatSavedAt(saved.savedAt)}</div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="muted" style={{ marginTop: 10 }}>
+                Step 3의 Add 버튼을 눌러 저장하세요.
+              </div>
+            )}
+          </div>
         </section>
 
         <section className="right">
-          <ThreadViewer thread={selected} entries={zipEntries} />
+          <ThreadViewer
+            thread={selected}
+            entries={zipEntries}
+            onAddThread={addThreadToSaved}
+            isAdded={selectedIsSaved}
+          />
         </section>
       </main>
     </div>
