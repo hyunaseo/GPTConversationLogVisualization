@@ -117,10 +117,11 @@ type Props = {
   thread: ChatThread | null;
   entries: ZipEntries | null;
   onAddThread: (thread: ChatThread) => void;
+  onDeleteThread: (threadId: string) => void;
   isAdded: boolean;
 };
 
-export function ThreadViewer({ thread, entries, onAddThread, isAdded }: Props) {
+export function ThreadViewer({ thread, entries, onAddThread, onDeleteThread, isAdded }: Props) {
   const [thumbUrls, setThumbUrls] = React.useState<Array<{ path: string; url: string }>>([]);
 
   // 썸네일 URL 생성/정리 (메모리 누수 방지)
@@ -169,14 +170,13 @@ export function ThreadViewer({ thread, entries, onAddThread, isAdded }: Props) {
       <div className="row">
         <div className="title">Step 3. 이미지와 대화를 확인한 뒤 데이터로 추가할지 선택하세요.</div>
         <button
-          className="btn"
+          className={isAdded ? "btn btnDanger" : "btn"}
           type="button"
-          onClick={() => onAddThread(thread)}
-          disabled={isAdded}
+          onClick={() => (isAdded ? onDeleteThread(thread.id) : onAddThread(thread))}
           aria-pressed={isAdded}
-          title={isAdded ? "이미 추가된 대화입니다." : "현재 대화를 추가합니다."}
+          title={isAdded ? "현재 대화를 삭제합니다." : "현재 대화를 추가합니다."}
         >
-          {isAdded ? "Added" : "Add"}
+          {isAdded ? "Delete" : "Add"}
         </button>
       </div>
     {isAdded ? (
@@ -184,7 +184,7 @@ export function ThreadViewer({ thread, entries, onAddThread, isAdded }: Props) {
           이 대화는 저장 목록에 추가되었습니다.
         </div>
       ) : null}
-      
+
       {/* Header / Meta */}
       <div style={{ marginTop: 10 }}>
         <div style={{ fontSize: 18, fontWeight: 700 }}>대화제목: {thread.title ?? "(untitled)"}</div>

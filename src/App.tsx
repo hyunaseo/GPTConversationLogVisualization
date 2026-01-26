@@ -17,6 +17,7 @@ import { JsonInspector } from "./components/JsonInspector";
 import { scanConversations } from "./lib/scanConversations";
 import { parseConversationsToThreads } from "./lib/parseConversations";
 import { listMediaPaths, resolveAssetPointerToPath } from "./lib/resolveAssets";
+import { SavedThreadGrid } from "./components/SavedThreadGrid";
 
 const defaultFilters: Filters = {
   keyword: "",
@@ -78,6 +79,10 @@ export default function App() {
     });
   }, []);
 
+  const removeThreadFromSaved = React.useCallback((threadId: string) => {
+    setSavedThreads((prev) => prev.filter((saved) => saved.id !== threadId));
+  }, []);
+
   const filtered = React.useMemo(
     () => applyFilters(threads, filters, Boolean(zipEntries)),
     [threads, filters, zipEntries]
@@ -99,8 +104,6 @@ export default function App() {
     () => (selected ? savedThreads.some((saved) => saved.id === selected.id) : false),
     [savedThreads, selected]
   );
-
-  const formatSavedAt = React.useCallback((ts: number) => new Date(ts).toLocaleString(), []);
 
   async function onZipSelected(file: File) {
     setZipFile(file);
@@ -253,19 +256,20 @@ export default function App() {
               {savedThreads.length}개 저장됨
             </div>
             {savedThreads.length > 0 ? (
-              <ul className="savedList">
-                {savedThreads.map((saved) => (
-                  <li key={saved.id} className="savedItem">
-                    <div className="savedTitle">{saved.title ?? "(untitled)"}</div>
-                    <div className="muted savedMeta">{formatSavedAt(saved.savedAt)}</div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="muted" style={{ marginTop: 10 }}>
-                Step 3의 Add 버튼을 눌러 저장하세요.
-              </div>
-            )}
+              <SavedThreadGrid
+                savedThreads={savedThreads}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                entries={zipEntries}
+              />
+            ) : null}
+            <div className="muted" style={{ marginTop: 10 }}>
+              {savedThreads.length === 0
+                ? "Step 3의 Add 버튼을 눌러 저장하세요."
+                : savedThreads.length < 10
+                ? "10개 이상의 대화를 추가하세요."
+                : "대화를 다운로드하세요."}
+            </div>
           </div>
         </section>
 
@@ -274,6 +278,7 @@ export default function App() {
             thread={selected}
             entries={zipEntries}
             onAddThread={addThreadToSaved}
+            onDeleteThread={removeThreadFromSaved}
             isAdded={selectedIsSaved}
           />
         </section>

@@ -92,6 +92,10 @@ body {
   cursor: not-allowed;
 }
 
+.btnDanger {
+  background: #f17b7b;
+  color: #1a0d0d;
+}
 
 .grid {
   margin-top: 10px;
@@ -361,6 +365,11 @@ input:focus { border-color: var(--accent); }
   display: grid;
   gap: 8px;
 }
+
+.savedThreadGrid {
+  margin-top: 10px;
+}
+
 
 .savedItem {
   border: 1px solid var(--border);
