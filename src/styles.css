@@ -370,6 +370,16 @@ input:focus { border-color: var(--accent); }
   margin-top: 10px;
 }
 
+.savedActions {
+  margin-top: 10px;
+  display: flex;
+}
+
+.savedDownloadBtn {
+  width: 100%;
+  justify-content: center;
+}
+
 
 .savedItem {
   border: 1px solid var(--border);

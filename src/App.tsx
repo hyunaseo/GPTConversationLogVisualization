@@ -62,6 +62,21 @@ export default function App() {
 
   const [threads, setThreads] = React.useState<ChatThread[]>(mockThreads);
   const [savedThreads, setSavedThreads] = React.useState<SavedThread[]>([]);
+  const [conversationLookup, setConversationLookup] = React.useState<Record<string, any>>({});
+
+  const savedImageCount = React.useMemo(
+    () =>
+      savedThreads.reduce(
+        (acc, thread) =>
+          acc +
+          (thread.imagePaths?.length ??
+            thread.imageAssetPointers?.length ??
+            0),
+        0
+      ),
+    [savedThreads]
+  );
+
 
   const addThreadToSaved = React.useCallback((thread: ChatThread) => {
     setSavedThreads((prev) => {
@@ -105,11 +120,33 @@ export default function App() {
     [savedThreads, selected]
   );
 
+  const downloadSavedConversations = React.useCallback(() => {
+    const payload = savedThreads
+      .map((thread) => conversationLookup[thread.id])
+      .filter(Boolean);
+
+    if (payload.length === 0) return;
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    anchor.href = url;
+    anchor.download = `saved-conversations-${dateStamp}.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }, [conversationLookup, savedThreads]);
+
   async function onZipSelected(file: File) {
     setZipFile(file);
     setStatus("");
     setJsonSummary("");
     setZipEntries(null);
+    setConversationLookup({});
 
     try {
       const entries = await readZipEntries(file);
@@ -135,8 +172,16 @@ export default function App() {
         return;
       }
 
+      const conversationsArray = Array.isArray(parsed.value) ? parsed.value : [];
+      const lookup: Record<string, any> = {};
+      for (const conv of conversationsArray) {
+        const id = String(conv?.id ?? conv?.conversation_id ?? "");
+        if (id) lookup[id] = conv;
+      }
+      setConversationLookup(lookup);
+
       // 1) threads 생성
-      const threadsFromJson = parseConversationsToThreads(parsed.value);
+      const threadsFromJson = parseConversationsToThreads(conversationsArray);
 
       // 2) ZIP 안 이미지 파일 경로 목록 생성
       const mediaPaths = listMediaPaths(entries);
@@ -218,7 +263,7 @@ export default function App() {
             </p>
             <ul className="tipsList">
               <li>ChatGPT가 생성한 이미지</li>
-              <li>스크린샷: 코딩에 대한 질의</li>
+              <li>스크린샷 (예: 코딩에 대한 질의)</li>
               <li>개인정보(예: 주민등록번호)가 노출된 이미지<br /><br /></li>
             </ul>
             <p className="tipsLead">다양한 논의를 위해, 다양한 맥락의 이미지일수록 좋아요</p>
@@ -270,6 +315,17 @@ export default function App() {
                 ? "10개 이상의 대화를 추가하세요."
                 : "대화를 다운로드하세요."}
             </div>
+            {savedImageCount > 0 ? (
+              <div className="savedActions">
+                <button
+                  className="btn savedDownloadBtn"
+                  type="button"
+                  onClick={downloadSavedConversations}
+                >
+                  Download
+                </button>
+              </div>
+            ) : null}
           </div>
         </section>
 
