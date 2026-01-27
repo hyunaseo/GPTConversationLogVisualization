@@ -1,4 +1,5 @@
 import * as React from "react";
+import { strToU8, zipSync } from "fflate";
 import "./styles.css";
 import type { Filters, ChatThread, SavedThread } from "./types";
 import { mockThreads } from "./lib/mock";
@@ -122,24 +123,63 @@ export default function App() {
 
   const downloadSavedConversations = React.useCallback(() => {
     const payload = savedThreads
-      .map((thread) => conversationLookup[thread.id])
+      .map((thread) => {
+        const conversation = conversationLookup[thread.id];
+        if (!conversation) return null;
+
+        const imagePaths = thread.imagePaths ?? [];
+        const exportImagePaths = imagePaths.map((path) => `images/${path}`);
+        return {
+          ...conversation,
+          image_paths: exportImagePaths.length ? exportImagePaths : undefined,
+          image_asset_pointers: thread.imageAssetPointers?.length
+            ? [...thread.imageAssetPointers]
+            : undefined,
+        };
+      })
       .filter(Boolean);
 
     if (payload.length === 0) return;
-
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
     const dateStamp = new Date().toISOString().slice(0, 10);
+
+    const imageEntries: Record<string, Uint8Array> = {};
+    if (zipEntries) {
+      const uniquePaths = new Set(
+        savedThreads.flatMap((thread) => thread.imagePaths ?? [])
+      );
+      for (const path of uniquePaths) {
+        const data = zipEntries[path];
+        if (data) imageEntries[`images/${path}`] = data;
+      }
+    }
+
+    const anchor = document.createElement("a");
+    let blob: Blob;
+    if (Object.keys(imageEntries).length > 0) {
+      const jsonName = `saved-conversations-${dateStamp}.json`;
+      const zipData = zipSync({
+        [jsonName]: strToU8(JSON.stringify(payload, null, 2)),
+        ...imageEntries,
+      });
+      const zipArray = new Uint8Array(zipData);
+      blob = new Blob([zipArray.buffer], { type: "application/zip" });
+      anchor.download = `saved-conversations-${dateStamp}.zip`;
+    } else {
+      blob = new Blob([JSON.stringify(payload, null, 2)], {
+        type: "application/json",
+      });
+      anchor.download = `saved-conversations-${dateStamp}.json`;
+    }
+
+    const url = URL.createObjectURL(blob);
+
     anchor.href = url;
-    anchor.download = `saved-conversations-${dateStamp}.json`;
+  
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
     URL.revokeObjectURL(url);
-  }, [conversationLookup, savedThreads]);
+  }, [conversationLookup, savedThreads, zipEntries]);
 
   async function onZipSelected(file: File) {
     setZipFile(file);
