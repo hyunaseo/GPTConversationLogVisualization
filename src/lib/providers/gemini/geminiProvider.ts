@@ -115,11 +115,17 @@ export class GeminiProvider implements ChatProvider {
       // Match image references using the lookup map
       const resolvedPaths: string[] = [];
       for (const ref of imageRefs) {
-        const normalized = ref.toLowerCase();
+        if (ref.startsWith("http")) {
+          continue;
+        }
+        const decodedRef = decodeURIComponent(ref.replace(/\uFFFD/g, "-"));
+        const normalized = decodedRef.toLowerCase();
         const path = filenameToPath.get(normalized);
         if (path) {
           resolvedPaths.push(path);
           resolvedCount++;
+        } else {
+          console.warn(`Could not resolve image asset pointer: ${ref}`);
         }
       }
 

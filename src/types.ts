@@ -34,12 +34,35 @@ export type Filters = {
   keyword: string;
   dateFrom: string; // yyyy-mm-dd
   dateTo: string;   // yyyy-mm-dd
-  imagesOnly: boolean;
+};
+
+export type Conversation = {
+  id: string;
+  title: string;
+  create_time: number;
+  update_time: number;
+  mapping: Record<
+    string,
+    {
+      id: string;
+      message: {
+        id: string;
+        author: {
+          role: string;
+        };
+        content: {
+          content_type: string;
+          parts: string[];
+        };
+        create_time: number;
+      };
+    }
+  >;
 };
 
 export interface ParseResult {
   threads: ChatThread[];
-  conversationLookup: Record<string, unknown>;
+  conversationLookup: Record<string, Conversation>;
 }
 
 export interface ChatProvider {

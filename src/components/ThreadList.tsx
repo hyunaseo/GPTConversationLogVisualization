@@ -13,7 +13,7 @@ type Props = {
   selectedId: string | null;
   onSelect: (id: string) => void;
   zipManager: ZipManager | null;
-  imagesOnly: boolean;
+  unresolvedImageCount: number;
 };
 
 export function ThreadList({
@@ -21,7 +21,7 @@ export function ThreadList({
   selectedId,
   onSelect,
   zipManager,
-  imagesOnly,
+  unresolvedImageCount,
 }: Props) {
   const [thumbUrls, setThumbUrls] = React.useState<Record<string, string>>({});
   const [currentPage, setCurrentPage] = React.useState(0);
@@ -47,7 +47,7 @@ export function ThreadList({
     let isCancelled = false;
 
     const loadThumbs = async () => {
-      if (!imagesOnly || !zipManager) {
+      if (!zipManager) {
         setThumbUrls({});
         return;
       }
@@ -81,7 +81,7 @@ export function ThreadList({
     return () => {
       isCancelled = true;
     };
-  }, [paginatedThreads, zipManager, imagesOnly]);
+  }, [paginatedThreads, zipManager]);
 
   React.useEffect(() => {
     const cache = thumbUrlCache.current;
@@ -90,7 +90,7 @@ export function ThreadList({
     };
   }, []);
 
-  const showThumbnails = imagesOnly;
+  const showThumbnails = true;
 
   return (
     <div className="card threadListCard">
@@ -98,6 +98,11 @@ export function ThreadList({
         <div className="title">Step 2. 이미지를 선택하세요.</div>
         <div className="muted">{threads.length} items</div>
       </div>
+      {unresolvedImageCount > 0 ? (
+        <div className="muted" style={{ marginBottom: 10 }}>
+          {unresolvedImageCount}개의 이미지를 찾을 수 없습니다. 외부 URL이거나 ZIP 파일에 포함되지 않은 파일입니다.
+        </div>
+      ) : null}
       <div className="threadListBody">
         {showThumbnails ? (
           <div className="threadGrid">

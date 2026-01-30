@@ -1,6 +1,6 @@
 import * as React from "react";
 import type { ChatThread } from "../types";
-import type { ZipEntries } from "../lib/zipJson";
+import type { ZipManager } from "../lib/ZipManager";
 
 function escapeHtml(input: string) {
   return input
@@ -94,59 +94,55 @@ function fmt(ts?: number) {
   return d.toLocaleString();
 }
 
-function blobUrlFromEntry(entries: ZipEntries, path: string): string | null {
-  const u8 = entries[path];
-  if (!u8) return null;
-
-  const ext = path.toLowerCase().split(".").pop() || "png";
-  const mime =
-    ext === "jpg" || ext === "jpeg"
-      ? "image/jpeg"
-      : ext === "webp"
-      ? "image/webp"
-      : "image/png";
-
-  // ✅ SharedArrayBuffer 가능성을 제거: ArrayBuffer로 "복사"해서 확정
-  const ab = new Uint8Array(u8).buffer; // <-- 이 buffer는 ArrayBuffer로 확정됨
-
-  const blob = new Blob([ab], { type: mime });
-  return URL.createObjectURL(blob);
-}
-
 type Props = {
   thread: ChatThread | null;
-  entries: ZipEntries | null;
+  zipManager: ZipManager | null;
   onAddThread: (thread: ChatThread) => void;
   onDeleteThread: (threadId: string) => void;
   isAdded: boolean;
 };
 
-export function ThreadViewer({ thread, entries, onAddThread, onDeleteThread, isAdded }: Props) {
+export function ThreadViewer({ thread, zipManager, onAddThread, onDeleteThread, isAdded }: Props) {
   const [thumbUrls, setThumbUrls] = React.useState<Array<{ path: string; url: string }>>([]);
 
-  // 썸네일 URL 생성/정리 (메모리 누수 방지)
   React.useEffect(() => {
-    // 이전 URL 정리
-    for (const t of thumbUrls) URL.revokeObjectURL(t.url);
-    setThumbUrls([]);
+    let isCancelled = false;
 
-    if (!thread || !entries) return;
+    const loadThumbs = async () => {
+      if (!thread || !zipManager) {
+        setThumbUrls([]);
+        return;
+      }
 
-    const paths = thread.imagePaths ?? [];
-    if (paths.length === 0) return;
+      const paths = thread.imagePaths ?? [];
+      if (paths.length === 0) {
+        setThumbUrls([]);
+        return;
+      }
 
-    const next: Array<{ path: string; url: string }> = [];
-    for (const p of paths.slice(0, 12)) {
-      const url = blobUrlFromEntry(entries, p);
-      if (url) next.push({ path: p, url });
-    }
-    setThumbUrls(next);
+      const next: Array<{ path: string; url: string }> = [];
+      await Promise.all(
+        paths.map(async (p) => {
+          const url = await zipManager.readBlobUrl(p);
+          if (url && !isCancelled) {
+            next.push({ path: p, url });
+          }
+        })
+      );
+
+      if (!isCancelled) {
+        setThumbUrls(next);
+      }
+    };
+
+    loadThumbs();
 
     return () => {
-      for (const t of next) URL.revokeObjectURL(t.url);
+      isCancelled = true;
+      thumbUrls.forEach((t) => URL.revokeObjectURL(t.url));
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [thread?.id, entries]); // thread 바뀌거나 entries 바뀌면 갱신
+  }, [thread?.id, zipManager]);
 
   if (!thread) {
     return (
@@ -159,11 +155,10 @@ export function ThreadViewer({ thread, entries, onAddThread, onDeleteThread, isA
     );
   }
 
-  // const pointerCount = thread.imageAssetPointers?.length ?? 0;
   const imagePathCount = thread.imagePaths?.length ?? 0;
   const messages = thread.messages ?? [];
   const hasImagePaths = imagePathCount > 0;
-  const hasRenderableImages = Boolean(entries) && thumbUrls.length > 0;
+  const hasRenderableImages = Boolean(zipManager) && thumbUrls.length > 0;
 
   return (
     <div className="card" style={{ height: "100%" }}>
@@ -192,11 +187,6 @@ export function ThreadViewer({ thread, entries, onAddThread, onDeleteThread, isA
         <div className="muted" style={{ marginTop: 6 }}>
           날짜: {fmt(thread.startTime)}
         </div>
-
-        {/* <div className="muted" style={{ marginTop: 6 }}>
-          Message Count: {thread.messageCount} · 이미지 포함: {thread.hasImages ? "Yes" : "No"}
-          {thread.hasImages ? ` (pointers: ${pointerCount}, files: ${imagePathCount})` : ""}
-        </div> */}
       </div>
 
       <hr style={{ margin: "14px 0" }} />
@@ -229,7 +219,7 @@ export function ThreadViewer({ thread, entries, onAddThread, onDeleteThread, isA
                 <img
                   src={url}
                   alt={path}
-                  style={{ width: "100%", display: "block", maxHeight: 260, objectFit: "cover" }}
+                  style={{ width: "100%", display: "block", maxHeight: 260, objectFit: "contain" }}
                 />
                 <div
                   className="muted"
@@ -246,7 +236,7 @@ export function ThreadViewer({ thread, entries, onAddThread, onDeleteThread, isA
             ))}
           </div>
         </div>
-      ) : thread.hasImages && !entries ? (
+      ) : thread.hasImages && !zipManager ? (
         <div className="muted">(ZIP 파일이 아직 업로드되지 않았습니다.)</div>
       ) : thread.hasImages && !hasImagePaths ? null : (
         <div className="muted">(이 대화에는 이미지가 없습니다.)</div>
@@ -300,48 +290,6 @@ export function ThreadViewer({ thread, entries, onAddThread, onDeleteThread, isA
           </div>
         )}
       </div>
-
-      {/* Asset pointers list */}
-      {/* {pointerCount > 0 ? (
-        <div style={{ marginTop: 14 }}>
-          <hr style={{ margin: "14px 0" }} />
-
-          <div style={{ fontSize: 14, fontWeight: 700 }}>Image asset pointers</div>
-          <div className="muted" style={{ marginTop: 6 }}>
-            {pointerCount} item{pointerCount === 1 ? "" : "s"} (showing up to 30)
-          </div>
-
-          <div
-            style={{
-              marginTop: 10,
-              maxHeight: 220,
-              overflow: "auto",
-              border: "1px solid rgba(255,255,255,0.12)",
-              borderRadius: 10,
-              padding: 10,
-            }}
-          >
-            <ul className="muted" style={{ margin: 0, paddingLeft: 18 }}>
-              {thread.imageAssetPointers!.slice(0, 30).map((p, i) => (
-                <li
-                  key={i}
-                  style={{
-                    fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-                    fontSize: 12,
-                    lineHeight: 1.35,
-                    marginBottom: 6,
-                    wordBreak: "break-all",
-                  }}
-                >
-                  {p}
-                </li>
-              ))}
-              {pointerCount > 30 ? <li>... (more)</li> : null}
-            </ul>
-          </div>
-        </div>
-      ) : null} */}
-
     </div>
   );
 }

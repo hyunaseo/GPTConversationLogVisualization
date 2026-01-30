@@ -12,13 +12,21 @@ export function extractFileToken(assetPointer: string): string | null {
 
 // mediaPaths에서 토큰을 포함하는 경로를 찾음
 export function resolveAssetPointerToPath(
-  assetPointer: string,
-  mediaPaths: string[]
+  assetPointer: string, // This is expected to be a filename, e.g., "image_abc.png"
+  mediaPaths: string[] // These are full paths, e.g., "Takeout/My Activity/Gemini Apps/image_abc.png"
 ): string | null {
-  const token = extractFileToken(assetPointer);
+  const targetFilename = assetPointer.toLowerCase();
 
+  // Try to find an exact filename match first
+  const exactMatch = mediaPaths.find((p) => {
+    const filename = p.split("/").pop()?.toLowerCase();
+    return filename === targetFilename;
+  });
+  if (exactMatch) return exactMatch;
+
+  // Fallback to token matching (original logic, but less preferred)
+  const token = extractFileToken(assetPointer);
   if (token) {
-    // 우선 sanitized 먼저, 없으면 아무거나
     const preferred = mediaPaths.find((p) => p.includes(token) && p.includes("sanitized"));
     if (preferred) return preferred;
 
@@ -26,8 +34,7 @@ export function resolveAssetPointerToPath(
     if (any) return any;
   }
 
-  // fallback: asset_pointer 일부를 경로에서 찾아보기
-  // (너무 비싸지 않게 마지막 24자만)
+  // Fallback: asset_pointer 일부를 경로에서 찾아보기 (original logic)
   const tail = assetPointer.slice(-24);
   const byTail = mediaPaths.find((p) => p.includes(tail));
   if (byTail) return byTail;

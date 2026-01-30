@@ -50,17 +50,7 @@ export function FiltersBar({ filters, onFiltersChange }: Props) {
             />
           </label>
         </div>
-        <div style={{ marginLeft: 10 }}>
-          <label>
-            <input
-              type="checkbox"
-              name="imagesOnly"
-              checked={filters.imagesOnly}
-              onChange={handleInputChange}
-            />{" "}
-            Images Only
-          </label>
-        </div>
+
       </div>
     </div>
   );

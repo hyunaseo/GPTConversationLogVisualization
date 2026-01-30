@@ -1,7 +1,7 @@
 import * as React from "react";
 import { strToU8, zipSync } from "fflate";
 import "./styles.css";
-import type { Filters, ChatThread, SavedThread } from "./types";
+import type { Filters, ChatThread, SavedThread, Conversation } from "./types";
 import { mockThreads } from "./lib/mock";
 import { FiltersBar } from "./components/FiltersBar";
 import { ZipImport } from "./components/ZipImport";
@@ -16,20 +16,10 @@ const defaultFilters: Filters = {
   keyword: "",
   dateFrom: "",
   dateTo: "",
-  imagesOnly: true,
 };
 
-function applyFilters(
-  threads: ChatThread[],
-  f: Filters,
-  hasZipManager: boolean
-) {
+function applyFilters(threads: ChatThread[], f: Filters) {
   return threads.filter((t) => {
-    if (f.imagesOnly) {
-      if (!t.hasImages) return false;
-      if (hasZipManager && (t.imagePaths?.length ?? 0) === 0) return false;
-    }
-
     if (f.keyword.trim()) {
       const kw = f.keyword.trim().toLowerCase();
       const hay = (t.title ?? "").toLowerCase();
@@ -55,11 +45,12 @@ export default function App() {
 
   const [status, setStatus] = React.useState<string>("");
   const [filters, setFilters] = React.useState<Filters>(defaultFilters);
+  const [unresolvedImageCount, setUnresolvedImageCount] = React.useState(0);
 
   const [threads, setThreads] = React.useState<ChatThread[]>(mockThreads);
   const [savedThreads, setSavedThreads] = React.useState<SavedThread[]>([]);
   const [conversationLookup, setConversationLookup] = React.useState<
-    Record<string, unknown>
+    Record<string, Conversation>
   >({});
 
   // Cleanup effect to close zip manager
@@ -101,8 +92,8 @@ export default function App() {
   }, []);
 
   const filtered = React.useMemo(
-    () => applyFilters(threads, filters, Boolean(zipManager)),
-    [threads, filters, zipManager]
+    () => applyFilters(threads, filters),
+    [threads, filters]
   );
 
   const [selectedId, setSelectedId] = React.useState<string | null>(
@@ -155,13 +146,17 @@ export default function App() {
           };
         } else {
           // ChatGPT: use original structure from conversationLookup
-          const conversation = conversationLookup[thread.id];
+          const conversation = conversationLookup[thread.id] as Conversation;
           if (!conversation) return null;
 
           const imagePaths = thread.imagePaths ?? [];
           const exportImagePaths = imagePaths.map((path) => `images/${path}`);
           return {
-            ...conversation,
+            id: conversation.id,
+            title: conversation.title,
+            create_time: conversation.create_time,
+            update_time: conversation.update_time,
+            mapping: conversation.mapping,
             image_paths: exportImagePaths.length ? exportImagePaths : undefined,
             image_asset_pointers: thread.imageAssetPointers?.length
               ? [...thread.imageAssetPointers]
@@ -268,6 +263,11 @@ export default function App() {
         (acc, t) => acc + (t.imagePaths?.length ?? 0),
         0
       );
+      const totalImageCount = threads.reduce(
+        (acc, t) => acc + (t.imageAssetPointers?.length ?? 0),
+        0
+      );
+      setUnresolvedImageCount(totalImageCount - mappedImgCount);
 
       console.log(
         `Processing complete: ${threadsWithPaths.length} threads, ${imgThreadCount} with images, ${mappedImgCount} images`
@@ -341,7 +341,7 @@ export default function App() {
             selectedId={selectedId}
             onSelect={setSelectedId}
             zipManager={zipManager}
-            imagesOnly={filters.imagesOnly}
+            unresolvedImageCount={unresolvedImageCount}
           />
         <div className="card savedCard">
             <div className="title">Step 4. 저장된 대화를 확인하고 다운로드하세요.</div>
