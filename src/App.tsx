@@ -126,7 +126,7 @@ export default function App() {
         // Check if this is a Gemini thread (needs synthetic structure)
         if (thread.provider === "gemini") {
           const imagePaths = thread.imagePaths ?? [];
-          const exportImagePaths = imagePaths.map((path) => `images/${path}`);
+          const exportImagePaths = imagePaths.map((path) => `images/${path.split("/").pop()}`);
           return {
             id: thread.id,
             title: thread.title,
@@ -175,12 +175,14 @@ export default function App() {
     );
 
     for (const path of uniquePaths) {
+      const filename = path.split("/").pop();
+      if (!filename) continue;
       // This is inefficient, but simpler than tracking blob urls
       const blob = await zipManager.readBlobUrl(path);
       if (blob) {
         const resp = await fetch(blob);
         const buffer = await resp.arrayBuffer();
-        imageEntries[`images/${path}`] = new Uint8Array(buffer);
+        imageEntries[`images/${filename}`] = new Uint8Array(buffer);
         URL.revokeObjectURL(blob);
       }
     }
