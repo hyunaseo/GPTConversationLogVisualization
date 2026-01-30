@@ -13,9 +13,11 @@ export function ZipImport({ onZipSelected, zipName, status }: Props) {
     <div className="card">
       <div className="row">
         <div>
-          <div className="title">Step 1. ChatGPT에서 다운로드 받은 ZIP 파일을 업로드하세요.</div>
+          <div className="title">Step 1. ChatGPT 또는 Gemini에서 다운로드 받은 ZIP 파일을 업로드하세요.</div>
           <div className="muted">
-            ChatGPT → Settings → Data controls → Export data → 이메일로 ZIP 파일 전송 (최대 12시간 소요)
+            ChatGPT: Settings → Data controls → Export data
+            <br />
+            Gemini: Google Takeout → Select "Gemini Apps"
           </div>
         </div>
 

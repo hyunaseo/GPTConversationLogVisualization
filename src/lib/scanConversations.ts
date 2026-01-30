@@ -17,11 +17,11 @@ type ScanResult = {
     contentType: string;
     hint: "image" | "attachment";
     // 민감 텍스트 없이 구조만 보이도록 content 일부만 잘라서 제공
-    contentPreview: any;
+    contentPreview: unknown;
   }>;
 };
 
-function typeOf(v: any): string {
+function typeOf(v: unknown): string {
   if (v === null) return "null";
   if (Array.isArray(v)) return "array";
   return typeof v;
@@ -31,7 +31,7 @@ function inc(map: Record<string, number>, key: string) {
 }
 
 // 텍스트는 제거하고 구조만 남기는 “안전 프리뷰”
-function redactDeep(v: any, depth = 0): any {
+function redactDeep(v: unknown, depth = 0): unknown {
   if (depth > 4) return "[[depth_limit]]";
   const t = typeOf(v);
   if (t === "string") {
@@ -39,9 +39,9 @@ function redactDeep(v: any, depth = 0): any {
     return `[[string len=${v.length}]]`;
   }
   if (t === "number" || t === "boolean" || t === "null") return v;
-  if (t === "array") return (v as any[]).slice(0, 6).map((x) => redactDeep(x, depth + 1));
+  if (t === "array") return (v as unknown[]).slice(0, 6).map((x) => redactDeep(x, depth + 1));
   if (t === "object") {
-    const o: any = {};
+    const o: unknown = {};
     const keys = Object.keys(v).slice(0, 30);
     for (const k of keys) o[k] = redactDeep(v[k], depth + 1);
     return o;
@@ -49,7 +49,7 @@ function redactDeep(v: any, depth = 0): any {
   return `[[${t}]]`;
 }
 
-function looksLikeImageFromContent(msgContent: any): boolean {
+function looksLikeImageFromContent(msgContent: unknown): boolean {
   if (!msgContent) return false;
 
   const ct = String(msgContent.content_type ?? "").toLowerCase();
@@ -62,7 +62,7 @@ function looksLikeImageFromContent(msgContent: any): boolean {
     for (const p of parts) {
       const pt = typeOf(p);
       if (pt === "object") {
-        const pct = String((p as any).content_type ?? "").toLowerCase();
+        const pct = String((p as unknown).content_type ?? "").toLowerCase();
         if (pct.includes("image")) return true;
         // 흔한 키워드들(버전별 상이)
         const s = JSON.stringify(p).toLowerCase();
@@ -83,12 +83,12 @@ function looksLikeImageFromContent(msgContent: any): boolean {
   return false;
 }
 
-function looksLikeAttachment(msgContent: any): boolean {
+function looksLikeAttachment(msgContent: unknown): boolean {
   if (!msgContent) return false;
   return Boolean(msgContent.attachments || msgContent.assets || msgContent.files);
 }
 
-export function scanConversations(conversations: any[], maxExamples = 10): ScanResult {
+export function scanConversations(conversations: unknown[], maxExamples = 10): ScanResult {
   const roleCounts: Record<string, number> = {};
   const contentTypeCounts: Record<string, number> = {};
   const examples: ScanResult["examples"] = [];

@@ -24,7 +24,7 @@ type Summary = {
   notes: string[];
 };
 
-function typeOf(v: any): string {
+function typeOf(v: unknown): string {
   if (v === null) return "null";
   if (Array.isArray(v)) return "array";
   return typeof v; // object, string, number, boolean, undefined
@@ -34,7 +34,7 @@ function inc(map: Record<string, number>, key: string) {
   map[key] = (map[key] ?? 0) + 1;
 }
 
-export function summarizeMaybeConversationsJson(filePath: string, json: any): Summary {
+export function summarizeMaybeConversationsJson(filePath: string, json: unknown): Summary {
   const notes: string[] = [];
   const top = typeOf(json);
 
@@ -118,7 +118,7 @@ export function summarizeMaybeConversationsJson(filePath: string, json: any): Su
     const parts = Array.isArray(content.parts) ? content.parts : [];
     const partsText = parts.join("\n");
 
-    if (/\!\[.*\]\(.*\)/.test(partsText) || /<img\s/i.test(partsText)) imageHintCount++;
+    if (/!\[.*\]\(.*\)/.test(partsText) || /<img\s/i.test(partsText)) imageHintCount++;
 
     if (content?.attachments || content?.assets || content?.files) attachmentHintCount++;
 

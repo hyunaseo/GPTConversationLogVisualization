@@ -1,3 +1,7 @@
+import type { ZipManager } from "./lib/ZipManager";
+
+export type ProviderType = "chatgpt" | "gemini" | "unknown";
+
 export type ChatThread = {
   id: string;
   title?: string;
@@ -10,6 +14,7 @@ export type ChatThread = {
   // ✅ 추가
   imageAssetPointers?: string[]; // asset_pointer 리스트
   imagePaths?: string[]; // zip 내부 경로들 (png/jpg/webp)
+  provider?: ProviderType; // 'chatgpt' | 'gemini'
 };
 
 export type SavedThread = ChatThread & {
@@ -31,4 +36,14 @@ export type Filters = {
   dateTo: string;   // yyyy-mm-dd
   imagesOnly: boolean;
 };
+
+export interface ParseResult {
+  threads: ChatThread[];
+  conversationLookup: Record<string, unknown>;
+}
+
+export interface ChatProvider {
+  parse(manager: ZipManager): Promise<ParseResult>;
+  resolveAssets(threads: ChatThread[], manager: ZipManager): Promise<ChatThread[]>;
+}
 

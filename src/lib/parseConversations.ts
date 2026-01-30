@@ -1,50 +1,50 @@
 import type { ChatThread, ChatMessage } from "../types";
 
-function typeOf(v: any): string {
+function typeOf(v: unknown): string {
   if (v === null) return "null";
   if (Array.isArray(v)) return "array";
   return typeof v;
 }
 
-function getImageAssetPointersFromMessageContent(content: any): string[] {
+function getImageAssetPointersFromMessageContent(content: unknown): string[] {
   const out: string[] = [];
   if (!content) return out;
 
-  const parts = content.parts;
+  const parts = (content as { parts: unknown[] }).parts;
   if (!Array.isArray(parts)) return out;
 
   for (const p of parts) {
     if (typeOf(p) === "object" && p) {
-      const ap = (p as any).asset_pointer;
+      const ap = (p as { asset_pointer: string }).asset_pointer;
       if (typeof ap === "string" && ap.length > 0) out.push(ap);
     }
   }
   return out;
 }
 
-function extractTextFromContent(content: any): string {
+function extractTextFromContent(content: unknown): string {
   if (!content) return "";
-  if (typeof content?.text === "string") return content.text;
+  if (typeof (content as { text: string })?.text === "string") return (content as { text: string }).text;
 
-  const parts = content.parts;
+  const parts = (content as { parts: unknown[] }).parts;
   if (!Array.isArray(parts)) return "";
 
   const texts: string[] = [];
   for (const p of parts) {
     if (typeof p === "string") {
       texts.push(p);
-    } else if (p && typeof p === "object" && typeof (p as any).text === "string") {
-      texts.push((p as any).text);
+    } else if (p && typeof p === "object" && typeof (p as { text: string }).text === "string") {
+      texts.push((p as { text: string }).text);
     }
   }
   return texts.join("\n").trim();
 }
 
-export function parseConversationsToThreads(conversations: any[]): ChatThread[] {
+export function parseConversationsToThreads(conversations: unknown[]): ChatThread[] {
   const threads: ChatThread[] = [];
 
   for (const conv of conversations) {
-    const mapping = conv?.mapping;
+    const mapping = (conv as { mapping: Record<string, unknown> })?.mapping;
     if (!mapping || typeOf(mapping) !== "object") continue;
 
     let messageCount = 0;
@@ -53,13 +53,13 @@ export function parseConversationsToThreads(conversations: any[]): ChatThread[] 
     const messages: Array<{ msg: ChatMessage; order: number }> = [];
 
     for (const nodeId of Object.keys(mapping)) {
-      const msg = mapping[nodeId]?.message;
+      const msg = (mapping[nodeId] as { message: unknown })?.message;
       if (!msg) continue;
 
       messageCount++;
 
-      const content = msg?.content;
-      const contentType = String(content?.content_type ?? "");
+      const content = (msg as { content: unknown })?.content;
+      const contentType = String((content as { content_type: string })?.content_type ?? "");
 
       // 핵심: multimodal_text에서 asset_pointer 추출
       if (contentType === "multimodal_text") {
@@ -70,7 +70,7 @@ export function parseConversationsToThreads(conversations: any[]): ChatThread[] 
         }
       }
 
-      const role = String(msg?.author?.role ?? "");
+      const role = String(((msg as { author: { role: string } })?.author)?.role ?? "");
       if (role === "user" || role === "assistant") {
         const text = extractTextFromContent(content);
         const messageAssetPointers =
@@ -78,10 +78,10 @@ export function parseConversationsToThreads(conversations: any[]): ChatThread[] 
 
         messages.push({
           msg: {
-            id: String(msg?.id ?? nodeId),
+            id: String((msg as { id: string })?.id ?? nodeId),
             role,
             text,
-            createdAt: typeof msg?.create_time === "number" ? msg.create_time * 1000 : undefined,
+            createdAt: typeof (msg as { create_time: number })?.create_time === "number" ? (msg as { create_time: number }).create_time * 1000 : undefined,
             assetPointers: messageAssetPointers.length ? messageAssetPointers : undefined,
           },
           order: messages.length,
@@ -102,10 +102,10 @@ export function parseConversationsToThreads(conversations: any[]): ChatThread[] 
       : messages;
 
     threads.push({
-      id: String(conv?.id ?? conv?.conversation_id ?? ""),
-      title: conv?.title ?? "(untitled)",
-      startTime: typeof conv?.create_time === "number" ? conv.create_time * 1000 : undefined,
-      endTime: typeof conv?.update_time === "number" ? conv.update_time * 1000 : undefined,
+      id: String((conv as { id: string })?.id ?? (conv as { conversation_id: string })?.conversation_id ?? ""),
+      title: (conv as { title: string })?.title ?? "(untitled)",
+      startTime: typeof (conv as { create_time: number })?.create_time === "number" ? (conv as { create_time: number }).create_time * 1000 : undefined,
+      endTime: typeof (conv as { update_time: number })?.update_time === "number" ? (conv as { update_time: number }).update_time * 1000 : undefined,
       hasImages,
       messageCount,
       messages: sortedMessages.length ? sortedMessages.map((item) => item.msg) : undefined,

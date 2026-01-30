@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Gemini Provider Test</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 1200px;
+      margin: 20px auto;
+      padding: 20px;
+    }
+    .result {
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 5px;
+      margin: 10px 0;
+    }
+    .error {
+      background: #fee;
+      color: #c00;
+    }
+    .success {
+      background: #efe;
+      color: #060;
+    }
+    pre {
+      overflow-x: auto;
+      background: white;
+      padding: 10px;
+      border: 1px solid #ddd;
+    }
+  </style>
+</head>
+<body>
+  <h1>Gemini Provider Test</h1>
+  <div>
+    <input type="file" id="zipInput" accept=".zip">
+    <button onclick="testParsing()">Test Parsing</button>
+  </div>
+  <div id="output"></div>
+
+  <script type="module">
+    import { detectProvider } from './src/lib/providers/detector.ts';
+    import { getProvider } from './src/lib/providers/factory.ts';
+    import { readZipEntries } from './src/lib/zipJson.ts';
+
+    window.testParsing = async function() {
+      const fileInput = document.getElementById('zipInput');
+      const output = document.getElementById('output');
+
+      if (!fileInput.files || !fileInput.files[0]) {
+        output.innerHTML = '<div class="result error">Please select a ZIP file first</div>';
+        return;
+      }
+
+      const file = fileInput.files[0];
+      output.innerHTML = '<div class="result">Processing...</div>';
+
+      try {
+        // Step 1: Read ZIP
+        const startRead = Date.now();
+        const entries = await readZipEntries(file);
+        const readTime = Date.now() - startRead;
+
+        // Step 2: Detect provider
+        const providerType = detectProvider(entries);
+
+        output.innerHTML += `
+          <div class="result success">
+            <strong>Provider detected:</strong> ${providerType}<br>
+            <strong>ZIP read time:</strong> ${readTime}ms<br>
+            <strong>Total files in ZIP:</strong> ${Object.keys(entries).length}
+          </div>
+        `;
+
+        if (providerType === 'unknown') {
+          throw new Error('Unknown provider type');
+        }
+
+        // Step 3: Parse
+        const startParse = Date.now();
+        const provider = getProvider(providerType);
+        const { threads, conversationLookup } = provider.parse(entries);
+        const parseTime = Date.now() - startParse;
+
+        output.innerHTML += `
+          <div class="result success">
+            <strong>Parse time:</strong> ${parseTime}ms<br>
+            <strong>Threads extracted:</strong> ${threads.length}<br>
+            <strong>Conversation lookup entries:</strong> ${Object.keys(conversationLookup).length}
+          </div>
+        `;
+
+        // Step 4: Resolve assets
+        const startResolve = Date.now();
+        const threadsWithAssets = provider.resolveAssets(threads, entries);
+        const resolveTime = Date.now() - startResolve;
+
+        const threadsWithImages = threadsWithAssets.filter(t => t.hasImages);
+        const totalImages = threadsWithAssets.reduce((acc, t) => acc + (t.imagePaths?.length ?? 0), 0);
+
+        output.innerHTML += `
+          <div class="result success">
+            <strong>Asset resolution time:</strong> ${resolveTime}ms<br>
+            <strong>Threads with images:</strong> ${threadsWithImages.length}<br>
+            <strong>Total images mapped:</strong> ${totalImages}
+          </div>
+        `;
+
+        // Sample thread
+        const sampleThread = threadsWithAssets[0];
+        if (sampleThread) {
+          output.innerHTML += `
+            <div class="result">
+              <strong>Sample thread:</strong>
+              <pre>${JSON.stringify({
+                id: sampleThread.id,
+                title: sampleThread.title,
+                provider: sampleThread.provider,
+                messageCount: sampleThread.messageCount,
+                hasImages: sampleThread.hasImages,
+                imageCount: sampleThread.imagePaths?.length ?? 0,
+                startTime: sampleThread.startTime ? new Date(sampleThread.startTime).toISOString() : null,
+                endTime: sampleThread.endTime ? new Date(sampleThread.endTime).toISOString() : null,
+              }, null, 2)}</pre>
+            </div>
+          `;
+        }
+
+        // Summary
+        output.innerHTML += `
+          <div class="result success">
+            <h3>✅ Test Passed!</h3>
+            <strong>Total time:</strong> ${readTime + parseTime + resolveTime}ms
+          </div>
+        `;
+
+      } catch (error) {
+        output.innerHTML += `
+          <div class="result error">
+            <strong>Error:</strong> ${error.message}<br>
+            <pre>${error.stack}</pre>
+          </div>
+        `;
+      }
+    };
+  </script>
+</body>
+</html>

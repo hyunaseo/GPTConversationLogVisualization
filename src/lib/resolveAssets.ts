@@ -1,7 +1,7 @@
-import type { ZipEntries } from "./zipJson";
 
-export function listMediaPaths(entries: ZipEntries): string[] {
-  return Object.keys(entries).filter((p) => /\.(png|jpe?g|webp)$/i.test(p));
+
+export function listMediaPaths(paths: string[]): string[] {
+  return paths.filter((p) => /\.(png|jpe?g|webp)$/i.test(p));
 }
 
 // asset_pointer에서 file_... 토큰을 찾아봄
