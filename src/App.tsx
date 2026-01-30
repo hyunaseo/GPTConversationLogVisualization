@@ -1,39 +1,25 @@
 import * as React from "react";
 import { strToU8, zipSync } from "fflate";
 import "./styles.css";
-import type { Filters, ChatThread, SavedThread } from "./types";
+import type { Filters, ChatThread, SavedThread, Conversation } from "./types";
 import { mockThreads } from "./lib/mock";
+import { FiltersBar } from "./components/FiltersBar";
 import { ZipImport } from "./components/ZipImport";
 import { ThreadList } from "./components/ThreadList";
 import { ThreadViewer } from "./components/ThreadViewer";
-import {
-  readZipEntries,
-  listJsonPaths,
-  readJsonText,
-  parseJsonSafe,
-  type ZipEntries,
-} from "./lib/zipJson";
-import { summarizeMaybeConversationsJson } from "./lib/summarizeConversationsJson";
-import { JsonInspector } from "./components/JsonInspector";
-import { scanConversations } from "./lib/scanConversations";
-import { parseConversationsToThreads } from "./lib/parseConversations";
-import { listMediaPaths, resolveAssetPointerToPath } from "./lib/resolveAssets";
 import { SavedThreadGrid } from "./components/SavedThreadGrid";
+import { detectProvider } from "./lib/providers/detector";
+import { getProvider } from "./lib/providers/factory";
+import { ZipManager } from "./lib/ZipManager";
 
 const defaultFilters: Filters = {
   keyword: "",
   dateFrom: "",
   dateTo: "",
-  imagesOnly: true,
 };
 
-function applyFilters(threads: ChatThread[], f: Filters, hasZipEntries: boolean) {
+function applyFilters(threads: ChatThread[], f: Filters) {
   return threads.filter((t) => {
-    if (f.imagesOnly) {
-      if (!t.hasImages) return false;
-      if (hasZipEntries && (t.imagePaths?.length ?? 0) === 0) return false;
-    }
-
     if (f.keyword.trim()) {
       const kw = f.keyword.trim().toLowerCase();
       const hay = (t.title ?? "").toLowerCase();
@@ -54,30 +40,36 @@ function applyFilters(threads: ChatThread[], f: Filters, hasZipEntries: boolean)
 }
 
 export default function App() {
-  const [zipFile, setZipFile] = React.useState<File | null>(null);
-  const [zipEntries, setZipEntries] = React.useState<ZipEntries | null>(null);
+  const [zipManager, setZipManager] = React.useState<ZipManager | null>(null);
+  const [zipName, setZipName] = React.useState<string | null>(null);
 
   const [status, setStatus] = React.useState<string>("");
-  const [filters, _setFilters] = React.useState<Filters>(defaultFilters);
-  const [jsonSummary, setJsonSummary] = React.useState<string>("");
+  const [filters, setFilters] = React.useState<Filters>(defaultFilters);
+  const [unresolvedImageCount, setUnresolvedImageCount] = React.useState(0);
 
   const [threads, setThreads] = React.useState<ChatThread[]>(mockThreads);
   const [savedThreads, setSavedThreads] = React.useState<SavedThread[]>([]);
-  const [conversationLookup, setConversationLookup] = React.useState<Record<string, any>>({});
+  const [conversationLookup, setConversationLookup] = React.useState<
+    Record<string, Conversation>
+  >({});
+
+  // Cleanup effect to close zip manager
+  React.useEffect(() => {
+    return () => {
+      zipManager?.close();
+    };
+  }, [zipManager]);
 
   const savedImageCount = React.useMemo(
     () =>
       savedThreads.reduce(
         (acc, thread) =>
           acc +
-          (thread.imagePaths?.length ??
-            thread.imageAssetPointers?.length ??
-            0),
+          (thread.imagePaths?.length ?? thread.imageAssetPointers?.length ?? 0),
         0
       ),
     [savedThreads]
   );
-
 
   const addThreadToSaved = React.useCallback((thread: ChatThread) => {
     setSavedThreads((prev) => {
@@ -100,11 +92,13 @@ export default function App() {
   }, []);
 
   const filtered = React.useMemo(
-    () => applyFilters(threads, filters, Boolean(zipEntries)),
-    [threads, filters, zipEntries]
+    () => applyFilters(threads, filters),
+    [threads, filters]
   );
 
-  const [selectedId, setSelectedId] = React.useState<string | null>(filtered[0]?.id ?? null);
+  const [selectedId, setSelectedId] = React.useState<string | null>(
+    filtered[0]?.id ?? null
+  );
 
   React.useEffect(() => {
     if (selectedId && filtered.some((t) => t.id === selectedId)) return;
@@ -117,25 +111,58 @@ export default function App() {
   );
 
   const selectedIsSaved = React.useMemo(
-    () => (selected ? savedThreads.some((saved) => saved.id === selected.id) : false),
+    () =>
+      selected
+        ? savedThreads.some((saved) => saved.id === selected.id)
+        : false,
     [savedThreads, selected]
   );
 
-  const downloadSavedConversations = React.useCallback(() => {
+  const downloadSavedConversations = React.useCallback(async () => {
+    if (!zipManager) return;
+
     const payload = savedThreads
       .map((thread) => {
-        const conversation = conversationLookup[thread.id];
-        if (!conversation) return null;
+        // Check if this is a Gemini thread (needs synthetic structure)
+        if (thread.provider === "gemini") {
+          const imagePaths = thread.imagePaths ?? [];
+          const exportImagePaths = imagePaths.map((path) => `images/${path.split("/").pop()}`);
+          return {
+            id: thread.id,
+            title: thread.title,
+            provider: "gemini",
+            create_time: thread.startTime,
+            update_time: thread.endTime,
+            messages: thread.messages?.map((m) => ({
+              id: m.id,
+              role: m.role,
+              content: { text: m.text },
+              created_at: m.createdAt,
+            })),
+            image_paths: exportImagePaths.length ? exportImagePaths : undefined,
+            image_asset_pointers: thread.imageAssetPointers?.length
+              ? [...thread.imageAssetPointers]
+              : undefined,
+          };
+        } else {
+          // ChatGPT: use original structure from conversationLookup
+          const conversation = conversationLookup[thread.id] as Conversation;
+          if (!conversation) return null;
 
-        const imagePaths = thread.imagePaths ?? [];
-        const exportImagePaths = imagePaths.map((path) => `images/${path}`);
-        return {
-          ...conversation,
-          image_paths: exportImagePaths.length ? exportImagePaths : undefined,
-          image_asset_pointers: thread.imageAssetPointers?.length
-            ? [...thread.imageAssetPointers]
-            : undefined,
-        };
+          const imagePaths = thread.imagePaths ?? [];
+          const exportImagePaths = imagePaths.map((path) => `images/${path}`);
+          return {
+            id: conversation.id,
+            title: conversation.title,
+            create_time: conversation.create_time,
+            update_time: conversation.update_time,
+            mapping: conversation.mapping,
+            image_paths: exportImagePaths.length ? exportImagePaths : undefined,
+            image_asset_pointers: thread.imageAssetPointers?.length
+              ? [...thread.imageAssetPointers]
+              : undefined,
+          };
+        }
       })
       .filter(Boolean);
 
@@ -143,13 +170,20 @@ export default function App() {
     const dateStamp = new Date().toISOString().slice(0, 10);
 
     const imageEntries: Record<string, Uint8Array> = {};
-    if (zipEntries) {
-      const uniquePaths = new Set(
-        savedThreads.flatMap((thread) => thread.imagePaths ?? [])
-      );
-      for (const path of uniquePaths) {
-        const data = zipEntries[path];
-        if (data) imageEntries[`images/${path}`] = data;
+    const uniquePaths = new Set(
+      savedThreads.flatMap((thread) => thread.imagePaths ?? [])
+    );
+
+    for (const path of uniquePaths) {
+      const filename = path.split("/").pop();
+      if (!filename) continue;
+      // This is inefficient, but simpler than tracking blob urls
+      const blob = await zipManager.readBlobUrl(path);
+      if (blob) {
+        const resp = await fetch(blob);
+        const buffer = await resp.arrayBuffer();
+        imageEntries[`images/${filename}`] = new Uint8Array(buffer);
+        URL.revokeObjectURL(blob);
       }
     }
 
@@ -174,112 +208,88 @@ export default function App() {
     const url = URL.createObjectURL(blob);
 
     anchor.href = url;
-  
+
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
     URL.revokeObjectURL(url);
-  }, [conversationLookup, savedThreads, zipEntries]);
+  }, [conversationLookup, savedThreads, zipManager]);
 
   async function onZipSelected(file: File) {
-    setZipFile(file);
+    // Clean up previous manager if it exists
+    if (zipManager) {
+      await zipManager.close();
+    }
+
+    setZipName(file.name);
     setStatus("");
-    setJsonSummary("");
-    setZipEntries(null);
     setConversationLookup({});
+    setThreads(mockThreads); // Reset to mock/empty state
 
     try {
-      const entries = await readZipEntries(file);
-      setZipEntries(entries);
+      setStatus("Reading ZIP file...");
+      const manager = new ZipManager(file);
+      setZipManager(manager);
 
-      const jsonPaths = listJsonPaths(entries);
-      if (jsonPaths.length === 0) {
-        setStatus("No .json files found inside the ZIP.");
+      // 1. DETECT PROVIDER
+      setStatus("Detecting format...");
+      const entryPaths = (await manager.getEntries()).map((e) => e.filename);
+      const providerType = detectProvider(entryPaths);
+
+      if (providerType === "unknown") {
+        setStatus("Unknown format. Please upload ChatGPT or Gemini export.");
+        manager.close();
+        setZipManager(null);
         return;
       }
 
-      const preferred =
-        jsonPaths.find((p) => p.toLowerCase().includes("conversations")) ?? jsonPaths[0];
+      setStatus(`Detected ${providerType.toUpperCase()} format. Parsing...`);
 
-      const text = readJsonText(entries, preferred);
-      const parsed = parseJsonSafe(text);
+      // 2. GET PROVIDER
+      const provider = getProvider(providerType);
 
-      if (!parsed.ok) {
-        setStatus("JSON parsing failed");
-        setJsonSummary(
-          `File: ${preferred}\nJSON.parse error: ${parsed.error}\n\nFirst 2000 chars:\n${text.slice(0, 2000)}`
-        );
-        return;
-      }
+      // 3. PARSE (this may take a while for large Gemini exports)
+      const { threads, conversationLookup } = await provider.parse(manager);
+      setConversationLookup(conversationLookup);
 
-      const conversationsArray = Array.isArray(parsed.value) ? parsed.value : [];
-      const lookup: Record<string, any> = {};
-      for (const conv of conversationsArray) {
-        const id = String(conv?.id ?? conv?.conversation_id ?? "");
-        if (id) lookup[id] = conv;
-      }
-      setConversationLookup(lookup);
+      setStatus("Resolving images...");
 
-      // 1) threads 생성
-      const threadsFromJson = parseConversationsToThreads(conversationsArray);
-
-      // 2) ZIP 안 이미지 파일 경로 목록 생성
-      const mediaPaths = listMediaPaths(entries);
-      if (import.meta.env.DEV)
-        console.log("mediaPaths:", mediaPaths.length, mediaPaths.slice(0, 30));
-
-      // 3) asset_pointer -> 실제 zip 경로 매핑해서 threads에 imagePaths 추가
-      const threadsWithPaths: ChatThread[] = threadsFromJson.map((t) => {
-        const pointers = t.imageAssetPointers ?? [];
-        if (pointers.length === 0) return t;
-
-        const resolved = pointers
-          .map((ap) => resolveAssetPointerToPath(ap, mediaPaths))
-          .filter((p): p is string => Boolean(p));
-
-        const unique = Array.from(new Set(resolved));
-        return {
-          ...t,
-          imagePaths: unique.length ? unique : undefined,
-        };
-      });
-
+      // 4. RESOLVE ASSETS
+      const threadsWithPaths = await provider.resolveAssets(threads, manager);
+      console.log(`Setting ${threadsWithPaths.length} threads in state...`);
       setThreads(threadsWithPaths);
 
+      // 5. UPDATE STATUS
       const imgThreadCount = threadsWithPaths.filter((t) => t.hasImages).length;
-      const mappedImgCount = threadsWithPaths.reduce((acc, t) => acc + (t.imagePaths?.length ?? 0), 0);
+      const mappedImgCount = threadsWithPaths.reduce(
+        (acc, t) => acc + (t.imagePaths?.length ?? 0),
+        0
+      );
+      const totalImageCount = threads.reduce(
+        (acc, t) => acc + (t.imageAssetPointers?.length ?? 0),
+        0
+      );
+      setUnresolvedImageCount(totalImageCount - mappedImgCount);
 
-      // 디버그 요약/스캔
-      if (import.meta.env.Dev) {
-        const summary = summarizeMaybeConversationsJson(preferred, parsed.value);
-        const scan = scanConversations(parsed.value, 10);
+      console.log(
+        `Processing complete: ${threadsWithPaths.length} threads, ${imgThreadCount} with images, ${mappedImgCount} images`
+      );
 
-        setStatus(
-          `Done: ${threadsWithPaths.length} conversations (${imgThreadCount} with images) · ${mappedImgCount} images mapped`
-        );
+      setStatus(
+        `${providerType.toUpperCase()}: ${
+          threadsWithPaths.length
+        } conversations ` +
+          `(${imgThreadCount} with images) · ${mappedImgCount} images mapped`
+      );
 
-        setJsonSummary(
-          [
-            `JSON files found (${jsonPaths.length}):`,
-            ...jsonPaths.slice(0, 50).map((p) => `- ${p}`),
-            jsonPaths.length > 50 ? `... (+${jsonPaths.length - 50} more)` : "",
-            "",
-            "=== Summary (first conversation) ===",
-            JSON.stringify(summary, null, 2),
-            "",
-            "=== Scan (all conversations) ===",
-            JSON.stringify(scan, null, 2),
-          ]
-            .filter(Boolean)
-            .join("\n")
-        );
-      }
-      else {
-        setJsonSummary("");
-      }
-    } catch (e: any) {
+      console.log("Upload processing complete!");
+    } catch (e: unknown) {
       console.error(e);
-      setStatus(`에러: ${e?.message ?? String(e)}`);
+      setStatus(`Error: ${e instanceof Error ? e.message : String(e)}`);
+      if (zipManager) {
+        await zipManager.close();
+      }
+      setZipManager(null);
     }
   }
 
@@ -320,10 +330,10 @@ export default function App() {
         <section className="top">
           <ZipImport
             onZipSelected={onZipSelected}
-            zipName={zipFile?.name ?? null}
+            zipName={zipName}
             status={status}
           />
-          {import.meta.env.DEV ? <JsonInspector summaryText={jsonSummary} /> : null}
+          <FiltersBar filters={filters} onFiltersChange={setFilters} />
         </section>
 
         {/* 2~4) Main content */}
@@ -332,8 +342,8 @@ export default function App() {
             threads={filtered}
             selectedId={selectedId}
             onSelect={setSelectedId}
-            entries={zipEntries}
-            imagesOnly={filters.imagesOnly}
+            zipManager={zipManager}
+            unresolvedImageCount={unresolvedImageCount}
           />
         <div className="card savedCard">
             <div className="title">Step 4. 저장된 대화를 확인하고 다운로드하세요.</div>
@@ -345,7 +355,7 @@ export default function App() {
                 savedThreads={savedThreads}
                 selectedId={selectedId}
                 onSelect={setSelectedId}
-                entries={zipEntries}
+                zipManager={zipManager}
               />
             ) : null}
             <div className="muted" style={{ marginTop: 10 }}>
@@ -372,7 +382,7 @@ export default function App() {
         <section className="right">
           <ThreadViewer
             thread={selected}
-            entries={zipEntries}
+            zipManager={zipManager}
             onAddThread={addThreadToSaved}
             onDeleteThread={removeThreadFromSaved}
             isAdded={selectedIsSaved}
