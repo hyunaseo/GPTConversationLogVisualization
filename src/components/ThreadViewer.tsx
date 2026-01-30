@@ -257,6 +257,11 @@ export function ThreadViewer({ thread, zipManager, onAddThread, onDeleteThread, 
               const assetCount = msg.assetPointers?.length ?? 0;
               const fallback = assetCount > 0 ? "(Image attached)" : "(No content)";
               const content = text || fallback;
+
+              if (!content || content === "(No content)") {
+                return null;
+              }
+
               const html = markdownToHtml(content);
 
               return (

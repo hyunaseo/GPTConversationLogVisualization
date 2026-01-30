@@ -25,6 +25,7 @@ function getImageAssetPointersFromMessageContent(content: unknown): string[] {
 function extractTextFromContent(content: unknown): string {
   if (!content) return "";
   if (typeof (content as { text: string })?.text === "string") return (content as { text: string }).text;
+  if (typeof (content as { message: string })?.message === "string") return (content as { message: string }).message;
 
   const parts = (content as { parts: unknown[] }).parts;
   if (!Array.isArray(parts)) return "";

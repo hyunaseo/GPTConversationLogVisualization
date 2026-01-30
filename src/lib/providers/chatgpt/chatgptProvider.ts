@@ -29,7 +29,9 @@ export class ChatGPTProvider implements ChatProvider {
       if (id) conversationLookup[id] = conv;
     }
 
-    const threads = parseConversationsToThreads(conversationsArray);
+    let threads = parseConversationsToThreads(conversationsArray);
+
+    threads = threads.filter((t) => t.hasImages);
 
     return { threads, conversationLookup };
   }
