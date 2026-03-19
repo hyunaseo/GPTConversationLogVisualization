@@ -10,14 +10,16 @@ import {
   readZipEntries,
   listJsonPaths,
   readJsonText,
+  readBinaryFile,
   parseJsonSafe,
-  type ZipEntries,
+  listMediaPaths,
+  type ZipArchive,
 } from "./lib/zipJson";
 import { summarizeMaybeConversationsJson } from "./lib/summarizeConversationsJson";
 import { JsonInspector } from "./components/JsonInspector";
 import { scanConversations } from "./lib/scanConversations";
 import { parseConversationsToThreads } from "./lib/parseConversations";
-import { listMediaPaths, resolveAssetPointerToPath } from "./lib/resolveAssets";
+import { resolveAssetPointerToPath } from "./lib/resolveAssets";
 import { SavedThreadGrid } from "./components/SavedThreadGrid";
 
 const defaultFilters: Filters = {
@@ -27,11 +29,11 @@ const defaultFilters: Filters = {
   imagesOnly: true,
 };
 
-function applyFilters(threads: ChatThread[], f: Filters, hasZipEntries: boolean) {
+function applyFilters(threads: ChatThread[], f: Filters, hasZipArchive: boolean) {
   return threads.filter((t) => {
     if (f.imagesOnly) {
       if (!t.hasImages) return false;
-      if (hasZipEntries && (t.imagePaths?.length ?? 0) === 0) return false;
+      if (hasZipArchive && (t.imagePaths?.length ?? 0) === 0) return false;
     }
 
     if (f.keyword.trim()) {
@@ -55,7 +57,7 @@ function applyFilters(threads: ChatThread[], f: Filters, hasZipEntries: boolean)
 
 export default function App() {
   const [zipFile, setZipFile] = React.useState<File | null>(null);
-  const [zipEntries, setZipEntries] = React.useState<ZipEntries | null>(null);
+  const [zipArchive, setZipArchive] = React.useState<ZipArchive | null>(null);
 
   const [status, setStatus] = React.useState<string>("");
   const [filters, _setFilters] = React.useState<Filters>(defaultFilters);
@@ -78,7 +80,6 @@ export default function App() {
     [savedThreads]
   );
 
-
   const addThreadToSaved = React.useCallback((thread: ChatThread) => {
     setSavedThreads((prev) => {
       if (prev.some((saved) => saved.id === thread.id)) return prev;
@@ -100,8 +101,8 @@ export default function App() {
   }, []);
 
   const filtered = React.useMemo(
-    () => applyFilters(threads, filters, Boolean(zipEntries)),
-    [threads, filters, zipEntries]
+    () => applyFilters(threads, filters, Boolean(zipArchive)),
+    [threads, filters, zipArchive]
   );
 
   const [selectedId, setSelectedId] = React.useState<string | null>(filtered[0]?.id ?? null);
@@ -121,7 +122,7 @@ export default function App() {
     [savedThreads, selected]
   );
 
-  const downloadSavedConversations = React.useCallback(() => {
+  const downloadSavedConversations = React.useCallback(async () => {
     const payload = savedThreads
       .map((thread) => {
         const conversation = conversationLookup[thread.id];
@@ -143,13 +144,17 @@ export default function App() {
     const dateStamp = new Date().toISOString().slice(0, 10);
 
     const imageEntries: Record<string, Uint8Array> = {};
-    if (zipEntries) {
+    if (zipArchive) {
       const uniquePaths = new Set(
         savedThreads.flatMap((thread) => thread.imagePaths ?? [])
       );
       for (const path of uniquePaths) {
-        const data = zipEntries[path];
-        if (data) imageEntries[`images/${path}`] = data;
+        try {
+          const data = await readBinaryFile(zipArchive, path);
+          imageEntries[`images/${path}`] = data;
+        } catch (e) {
+          console.warn("Failed to export image from zip:", path, e);
+        }
       }
     }
 
@@ -172,27 +177,25 @@ export default function App() {
     }
 
     const url = URL.createObjectURL(blob);
-
     anchor.href = url;
-  
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
     URL.revokeObjectURL(url);
-  }, [conversationLookup, savedThreads, zipEntries]);
+  }, [conversationLookup, savedThreads, zipArchive]);
 
   async function onZipSelected(file: File) {
     setZipFile(file);
-    setStatus("");
+    setStatus("Reading ZIP index...");
     setJsonSummary("");
-    setZipEntries(null);
+    setZipArchive(null);
     setConversationLookup({});
 
     try {
-      const entries = await readZipEntries(file);
-      setZipEntries(entries);
+      const archive = await readZipEntries(file);
+      setZipArchive(archive);
 
-      const jsonPaths = listJsonPaths(entries);
+      const jsonPaths = listJsonPaths(archive);
       if (jsonPaths.length === 0) {
         setStatus("No .json files found inside the ZIP.");
         return;
@@ -201,7 +204,8 @@ export default function App() {
       const preferred =
         jsonPaths.find((p) => p.toLowerCase().includes("conversations")) ?? jsonPaths[0];
 
-      const text = readJsonText(entries, preferred);
+      setStatus(`Reading ${preferred}...`);
+      const text = await readJsonText(archive, preferred);
       const parsed = parseJsonSafe(text);
 
       if (!parsed.ok) {
@@ -220,15 +224,12 @@ export default function App() {
       }
       setConversationLookup(lookup);
 
-      // 1) threads 생성
       const threadsFromJson = parseConversationsToThreads(conversationsArray);
-
-      // 2) ZIP 안 이미지 파일 경로 목록 생성
-      const mediaPaths = listMediaPaths(entries);
-      if (import.meta.env.DEV)
+      const mediaPaths = listMediaPaths(archive);
+      if (import.meta.env.DEV) {
         console.log("mediaPaths:", mediaPaths.length, mediaPaths.slice(0, 30));
+      }
 
-      // 3) asset_pointer -> 실제 zip 경로 매핑해서 threads에 imagePaths 추가
       const threadsWithPaths: ChatThread[] = threadsFromJson.map((t) => {
         const pointers = t.imageAssetPointers ?? [];
         if (pointers.length === 0) return t;
@@ -249,15 +250,13 @@ export default function App() {
       const imgThreadCount = threadsWithPaths.filter((t) => t.hasImages).length;
       const mappedImgCount = threadsWithPaths.reduce((acc, t) => acc + (t.imagePaths?.length ?? 0), 0);
 
-      // 디버그 요약/스캔
-      if (import.meta.env.Dev) {
+      if (import.meta.env.DEV) {
         const summary = summarizeMaybeConversationsJson(preferred, parsed.value);
         const scan = scanConversations(parsed.value, 10);
 
         setStatus(
           `Done: ${threadsWithPaths.length} conversations (${imgThreadCount} with images) · ${mappedImgCount} images mapped`
         );
-
         setJsonSummary(
           [
             `JSON files found (${jsonPaths.length}):`,
@@ -273,13 +272,15 @@ export default function App() {
             .filter(Boolean)
             .join("\n")
         );
-      }
-      else {
+      } else {
+        setStatus(
+          `Done: ${threadsWithPaths.length} conversations (${imgThreadCount} with images) · ${mappedImgCount} images mapped`
+        );
         setJsonSummary("");
       }
     } catch (e: any) {
       console.error(e);
-      setStatus(`에러: ${e?.message ?? String(e)}`);
+      setStatus(`Error: ${e?.message ?? String(e)}`);
     }
   }
 
@@ -287,9 +288,9 @@ export default function App() {
     <div className="page">
       <header className="header">
         <div>
-          <div className="h1">Project NoonChi를 위한 데이터 수집</div>
+          <div className="h1">Data Collection for Project NoonChi</div>
           <div className="muted">
-            모든 데이터 처리는 참가자의 개인 기기에서만 이루어지며, 그 어떤 정보도 외부로 전송되지 않습니다.
+            All data processing happens only on the participant&apos;s personal device, and no information is ever transmitted externally.
           </div>
         </div>
       </header>
@@ -299,68 +300,64 @@ export default function App() {
           <aside className="card tipsCard">
             <div className="tipsTitle">Tips!<br /><br /></div>
             <p className="tipsLead">
-              실험의 목적 상 아래에 해당하는 이미지는 <span className="tipsEm">수집 대상이 아닙니다!</span>
+              For the purposes of this experiment, the following images are <span className="tipsEm">not elligible</span> for collection:
             </p>
             <ul className="tipsList">
-              <li>ChatGPT가 생성한 이미지</li>
-              <li>스크린샷 (예: 코딩에 대한 질의)</li>
-              <li>개인정보(예: 주민등록번호)가 노출된 이미지<br /><br /></li>
+              <li>Images generated by ChatGPT</li>
+              <li>Screenhots (e.g., coding-related queries)</li>
+              <li>Images with exposed personal information (e.g., resident registration numbers)<br /><br /></li>
             </ul>
-            <p className="tipsLead">다양한 논의를 위해, 다양한 맥락의 이미지일수록 좋아요</p>
+            <p className="tipsLead">For diverse discussions, images from various contexts are preferred.</p>
             <ul className="tipsList">
               <li>
-                모든 데이터가 여기에 대한 것이나, “저게 뭐야?”같은 단순 질의에 대한
-                것이면 곤란해요
+                It would be problematic if all of the data were about the same kind of content, or only supported simple questions like &quot;What is that?&quot;
               </li>
             </ul>
           </aside>
         </section>
-        
-        {/* 1) Top full-width */}
+
         <section className="top">
           <ZipImport
             onZipSelected={onZipSelected}
             zipName={zipFile?.name ?? null}
             status={status}
           />
-          {import.meta.env.DEV ? <JsonInspector summaryText={jsonSummary} /> : null}
         </section>
 
-        {/* 2~4) Main content */}
         <section className="left">
           <ThreadList
             threads={filtered}
             selectedId={selectedId}
             onSelect={setSelectedId}
-            entries={zipEntries}
+            archive={zipArchive}
             imagesOnly={filters.imagesOnly}
           />
-        <div className="card savedCard">
-            <div className="title">Step 4. 저장된 대화를 확인하고 다운로드하세요.</div>
+          <div className="card savedCard">
+            <div className="title">Step 4. Review and download the saved conversations.</div>
             <div className="muted" style={{ marginTop: 6 }}>
-              {savedThreads.length}개 저장됨
+              {savedThreads.length} Saved
             </div>
             {savedThreads.length > 0 ? (
               <SavedThreadGrid
                 savedThreads={savedThreads}
                 selectedId={selectedId}
                 onSelect={setSelectedId}
-                entries={zipEntries}
+                archive={zipArchive}
               />
             ) : null}
             <div className="muted" style={{ marginTop: 10 }}>
               {savedThreads.length === 0
-                ? "Step 3의 Add 버튼을 눌러 저장하세요."
+                ? "Click the Add button in Step 3 to save."
                 : savedThreads.length < 10
-                ? "10개 이상의 대화를 추가하세요."
-                : "대화를 다운로드하세요."}
+                ? "Add 10 or more conversations."
+                : "Download the conversations."}
             </div>
             {savedImageCount > 0 ? (
               <div className="savedActions">
                 <button
                   className="btn savedDownloadBtn"
                   type="button"
-                  onClick={downloadSavedConversations}
+                  onClick={() => void downloadSavedConversations()}
                 >
                   Download
                 </button>
@@ -372,7 +369,7 @@ export default function App() {
         <section className="right">
           <ThreadViewer
             thread={selected}
-            entries={zipEntries}
+            archive={zipArchive}
             onAddThread={addThreadToSaved}
             onDeleteThread={removeThreadFromSaved}
             isAdded={selectedIsSaved}

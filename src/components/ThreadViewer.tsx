@@ -1,6 +1,6 @@
 import * as React from "react";
 import type { ChatThread } from "../types";
-import type { ZipEntries } from "../lib/zipJson";
+import { createBlobUrlFromPath, type ZipArchive } from "../lib/zipJson";
 
 function escapeHtml(input: string) {
   return input
@@ -91,124 +91,113 @@ function markdownToHtml(input: string) {
 function fmt(ts?: number) {
   if (!ts) return "-";
   const d = new Date(ts);
-  return d.toLocaleString();
-}
-
-function blobUrlFromEntry(entries: ZipEntries, path: string): string | null {
-  const u8 = entries[path];
-  if (!u8) return null;
-
-  const ext = path.toLowerCase().split(".").pop() || "png";
-  const mime =
-    ext === "jpg" || ext === "jpeg"
-      ? "image/jpeg"
-      : ext === "webp"
-      ? "image/webp"
-      : "image/png";
-
-  // ✅ SharedArrayBuffer 가능성을 제거: ArrayBuffer로 "복사"해서 확정
-  const ab = new Uint8Array(u8).buffer; // <-- 이 buffer는 ArrayBuffer로 확정됨
-
-  const blob = new Blob([ab], { type: mime });
-  return URL.createObjectURL(blob);
+  return d.toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
 }
 
 type Props = {
   thread: ChatThread | null;
-  entries: ZipEntries | null;
+  archive: ZipArchive | null;
   onAddThread: (thread: ChatThread) => void;
   onDeleteThread: (threadId: string) => void;
   isAdded: boolean;
 };
 
-export function ThreadViewer({ thread, entries, onAddThread, onDeleteThread, isAdded }: Props) {
+export function ThreadViewer({ thread, archive, onAddThread, onDeleteThread, isAdded }: Props) {
   const [thumbUrls, setThumbUrls] = React.useState<Array<{ path: string; url: string }>>([]);
 
-  // 썸네일 URL 생성/정리 (메모리 누수 방지)
   React.useEffect(() => {
-    // 이전 URL 정리
-    for (const t of thumbUrls) URL.revokeObjectURL(t.url);
+    let cancelled = false;
+    const previous = [...thumbUrls];
+    for (const t of previous) URL.revokeObjectURL(t.url);
     setThumbUrls([]);
 
-    if (!thread || !entries) return;
+    if (!thread || !archive) return;
 
     const paths = thread.imagePaths ?? [];
     if (paths.length === 0) return;
 
-    const next: Array<{ path: string; url: string }> = [];
-    for (const p of paths.slice(0, 12)) {
-      const url = blobUrlFromEntry(entries, p);
-      if (url) next.push({ path: p, url });
-    }
-    setThumbUrls(next);
+    const load = async () => {
+      const next: Array<{ path: string; url: string }> = [];
+      for (const p of paths.slice(0, 12)) {
+        try {
+          const url = await createBlobUrlFromPath(archive, p);
+          if (url) next.push({ path: p, url });
+        } catch (e) {
+          console.warn("Failed to load viewer image:", p, e);
+        }
+      }
+      if (cancelled) {
+        for (const t of next) URL.revokeObjectURL(t.url);
+        return;
+      }
+      setThumbUrls(next);
+    };
+
+    void load();
 
     return () => {
-      for (const t of next) URL.revokeObjectURL(t.url);
+      cancelled = true;
+      for (const t of previous) URL.revokeObjectURL(t.url);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [thread?.id, entries]); // thread 바뀌거나 entries 바뀌면 갱신
+  }, [thread?.id, archive]);
 
   if (!thread) {
     return (
       <div className="card" style={{ height: "100%" }}>
-        <div className="title">Step 3. 이미지와 대화를 확인한 뒤 데이터로 추가할지 선택하세요.</div>
+        <div className="title">Step 3. Review the image and conversation, then choose whether to add them to the dataset.</div>
         <div className="muted" style={{ marginTop: 10 }}>
-          왼쪽에서 대화를 선택하세요.
+          Select a conversation from the left.
         </div>
       </div>
     );
   }
 
-  // const pointerCount = thread.imageAssetPointers?.length ?? 0;
   const imagePathCount = thread.imagePaths?.length ?? 0;
   const messages = thread.messages ?? [];
   const hasImagePaths = imagePathCount > 0;
-  const hasRenderableImages = Boolean(entries) && thumbUrls.length > 0;
+  const hasRenderableImages = Boolean(archive) && thumbUrls.length > 0;
 
   return (
     <div className="card" style={{ height: "100%" }}>
       <div className="row">
-        <div className="title">Step 3. 이미지와 대화를 확인한 뒤 데이터로 추가할지 선택하세요.</div>
+        <div className="title">Step 3. Review the image and conversation, then choose whether to add them to the dataset.</div>
         <button
           className={isAdded ? "btn btnDanger" : "btn"}
           type="button"
           onClick={() => (isAdded ? onDeleteThread(thread.id) : onAddThread(thread))}
           aria-pressed={isAdded}
-          title={isAdded ? "현재 대화를 삭제합니다." : "현재 대화를 추가합니다."}
+          title={isAdded ? "Delete current conversation" : "Add current conversation"}
         >
           {isAdded ? "Delete" : "Add"}
         </button>
       </div>
-    {isAdded ? (
+      {isAdded ? (
         <div className="muted" style={{ marginTop: 6 }}>
-          이 대화는 저장 목록에 추가되었습니다.
+          This conversation is added to the dataset.
         </div>
       ) : null}
 
-      {/* Header / Meta */}
       <div style={{ marginTop: 10 }}>
-        <div style={{ fontSize: 18, fontWeight: 700 }}>대화제목: {thread.title ?? "(untitled)"}</div>
+        <div style={{ fontSize: 18, fontWeight: 700 }}>Conversation title: {thread.title ?? "(untitled)"}</div>
 
         <div className="muted" style={{ marginTop: 6 }}>
-          날짜: {fmt(thread.startTime)}
+          Date: {fmt(thread.startTime)}
         </div>
-
-        {/* <div className="muted" style={{ marginTop: 6 }}>
-          Message Count: {thread.messageCount} · 이미지 포함: {thread.hasImages ? "Yes" : "No"}
-          {thread.hasImages ? ` (pointers: ${pointerCount}, files: ${imagePathCount})` : ""}
-        </div> */}
       </div>
 
       <hr style={{ margin: "14px 0" }} />
 
-      {/* Images preview */}
       {hasRenderableImages ? (
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700 }}>이미지</div>
-          <div className="muted" style={{ marginTop: 6 }}>
-            
-          </div>
-
+          <div style={{ fontSize: 14, fontWeight: 700 }}>Images</div>
           <div
             style={{
               marginTop: 10,
@@ -239,109 +228,36 @@ export function ThreadViewer({ thread, entries, onAddThread, onDeleteThread, isA
                     wordBreak: "break-all",
                     fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
                   }}
-                >
-                  {/* {path} */}
-                </div>
+                />
               </div>
             ))}
           </div>
         </div>
-      ) : thread.hasImages && !entries ? (
-        <div className="muted">(ZIP 파일이 아직 업로드되지 않았습니다.)</div>
+      ) : thread.hasImages && !archive ? (
+        <div className="muted">(The ZIP file has not been uploaded yet.)</div>
       ) : thread.hasImages && !hasImagePaths ? null : (
-        <div className="muted">(이 대화에는 이미지가 없습니다.)</div>
+        <div className="muted">(This conversation has no images.)</div>
       )}
 
-    {/* Conversation log */}
       <div style={{ marginTop: 14 }}>
         <hr style={{ margin: "14px 0" }} />
 
-        <div style={{ fontSize: 14, fontWeight: 700 }}>대화 내용</div>
+        <div style={{ fontSize: 14, fontWeight: 700 }}>Conversation content</div>
         <div className="muted" style={{ marginTop: 6 }}>
+          {messages.length} messages
         </div>
 
-        {messages.length > 0 ? (
-          <div className="conversationLog">
-            {messages.map((msg) => {
-              const text = msg.text?.trim();
-              const assetCount = msg.assetPointers?.length ?? 0;
-              const fallback = assetCount > 0 ? "(Image attached)" : "(No content)";
-              const content = text || fallback;
-              const html = markdownToHtml(content);
-
-              return (
-                <div
-                  key={msg.id}
-                  className={`conversationMessage ${
-                    msg.role === "user" ? "conversationMessageUser" : "conversationMessageAssistant"
-                  }`}
-                >
-                  <div className="conversationRole">
-                    {msg.role === "user" ? "User" : "Assistant"}
-                  </div>
-                  <div className="conversationBody">
-                    <div
-                      className="conversationText conversationMarkdown"
-                      dangerouslySetInnerHTML={{ __html: html }}
-                    />
-                    {assetCount > 0 ? (
-                      <div className="conversationMeta muted">
-                        이미지 {assetCount}개 포함
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="muted" style={{ marginTop: 10 }}>
-            (이 대화에는 대화 내용이 없습니다.)
-          </div>
-        )}
+        <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+          {messages.map((m) => (
+            <div key={m.id} style={{ border: "1px solid rgba(255,255,255,0.12)", borderRadius: 12, padding: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
+                {m.role === "user" ? "User" : "ChatGPT"}
+              </div>
+              <div dangerouslySetInnerHTML={{ __html: markdownToHtml(m.text || "") }} />
+            </div>
+          ))}
+        </div>
       </div>
-
-      {/* Asset pointers list */}
-      {/* {pointerCount > 0 ? (
-        <div style={{ marginTop: 14 }}>
-          <hr style={{ margin: "14px 0" }} />
-
-          <div style={{ fontSize: 14, fontWeight: 700 }}>Image asset pointers</div>
-          <div className="muted" style={{ marginTop: 6 }}>
-            {pointerCount} item{pointerCount === 1 ? "" : "s"} (showing up to 30)
-          </div>
-
-          <div
-            style={{
-              marginTop: 10,
-              maxHeight: 220,
-              overflow: "auto",
-              border: "1px solid rgba(255,255,255,0.12)",
-              borderRadius: 10,
-              padding: 10,
-            }}
-          >
-            <ul className="muted" style={{ margin: 0, paddingLeft: 18 }}>
-              {thread.imageAssetPointers!.slice(0, 30).map((p, i) => (
-                <li
-                  key={i}
-                  style={{
-                    fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-                    fontSize: 12,
-                    lineHeight: 1.35,
-                    marginBottom: 6,
-                    wordBreak: "break-all",
-                  }}
-                >
-                  {p}
-                </li>
-              ))}
-              {pointerCount > 30 ? <li>... (more)</li> : null}
-            </ul>
-          </div>
-        </div>
-      ) : null} */}
-
     </div>
   );
 }

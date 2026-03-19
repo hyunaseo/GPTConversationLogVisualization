@@ -13,9 +13,9 @@ export function ZipImport({ onZipSelected, zipName, status }: Props) {
     <div className="card">
       <div className="row">
         <div>
-          <div className="title">Step 1. ChatGPT에서 다운로드 받은 ZIP 파일을 업로드하세요.</div>
+          <div className="title">Step 1. Upload the ZIP file downloaded from ChatGPT.</div>
           <div className="muted">
-            ChatGPT → Settings → Data controls → Export data → 이메일로 ZIP 파일 전송 (최대 12시간 소요)
+            ChatGPT → Settings → Data Controls → Export Data → Receive the ZIP file by email (may take up to 12 hours)
           </div>
         </div>
 

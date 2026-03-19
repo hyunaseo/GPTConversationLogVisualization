@@ -8,14 +8,14 @@ type Props = {
 export function FiltersBar({ filters, onChange }: Props) {
   return (
     <div className="card">
-      <div className="title">Step 2. 키워드 검색 / 날짜 필터</div>
+      <div className="title">Step 2. Keyword Search / Date Filter</div>
 
       <div className="grid">
         <label className="field">
-          <div className="label">키워드</div>
+          <div className="label">Keyword</div>
           <input
             value={filters.keyword}
-            placeholder="예: 여행, 일본, 번역 ... "
+            placeholder="e.g., travel, Japan, translation ... "
             onChange={(e) => onChange({ ...filters, keyword: e.target.value })}
           />
         </label>
@@ -46,7 +46,7 @@ export function FiltersBar({ filters, onChange }: Props) {
               onChange({ ...filters, imagesOnly: e.target.checked })
             }
           />
-          <span>이미지 포함된 대화</span>
+          <span>Conversations with Images</span>
         </label>
       </div>
     </div>
